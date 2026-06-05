@@ -1,0 +1,54 @@
+{
+  "name": "ohos-playwright",
+  "version": "0.1.0",
+  "description": "Playwright adapter for OpenHarmony / ArkWeb via hdc + CDP",
+  "license": "MIT",
+  "author": "social4hyq",
+  "homepage": "https://github.com/social4hyq/ohos-playwright#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/social4hyq/ohos-playwright.git"
+  },
+  "bugs": {
+    "url": "https://github.com/social4hyq/ohos-playwright/issues"
+  },
+  "keywords": [
+    "playwright",
+    "openharmony",
+    "ohos",
+    "harmonyos",
+    "arkweb",
+    "e2e",
+    "hdc",
+    "cdp"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "exports": {
+    "./fixture": "./src/fixture.mjs",
+    "./setup": "./src/setup.mjs",
+    "./teardown": "./src/teardown.mjs",
+    "./register": "./src/register.mjs",
+    "./loader": "./src/loader.mjs",
+    "./config": {
+      "types": "./src/config.d.mts",
+      "default": "./src/config.mjs"
+    }
+  },
+  "bin": {
+    "ohos-playwright": "src/cli.mjs"
+  },
+  "files": [
+    "src",
+    "SKILL.md"
+  ],
+  "peerDependencies": {
+    "@playwright/test": ">=1.59.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
