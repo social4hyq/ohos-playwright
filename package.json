@@ -48,12 +48,13 @@
   "peerDependencies": {
     "@playwright/test": ">=1.59.0"
   },
+  "devDependencies": {
+    "@playwright/test": ">=1.59.0",
+    "@types/node": "^25.9.2",
+    "typescript": "^6.0.3"
+  },
   "publishConfig": {
     "access": "public",
     "provenance": true
-  },
-  "devDependencies": {
-    "@types/node": "^25.9.2",
-    "typescript": "^6.0.3"
   }
 }
