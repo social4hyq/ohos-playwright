@@ -27,6 +27,8 @@ jobs:
             exit 1
           fi
 
+      - run: npm install
+
       - run: npm test
 
       - run: npm publish --provenance --access public
