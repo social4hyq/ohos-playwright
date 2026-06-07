@@ -42,7 +42,7 @@ export default defineConfig(withOpenHarmony({ /* your config */ }))
 | Variable | Default |
 |---|---|
 | `OHOS_PW_BUNDLE` | `com.huawei.hmos.browser` |
-| `OHOS_PW_LAUNCH_URL` | `http://localhost:5173` |
+| `OHOS_PW_LAUNCH_URL` | `about:blank` (set to your dev server URL, e.g. `http://localhost:5173`) |
 | `OHOS_PW_HDC` | `/data/service/hnp/bin/hdc` |
 | `OHOS_PW_AUTO_CONNECT` | auto (set `0` to skip device auto-connect) |
 | `OHOS_PW_INFO_PATH` | `<tmpdir>/ohos-playwright-cdp.json` |

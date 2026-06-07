@@ -8,7 +8,7 @@ import { INFO_PATH } from './info-path.mts'
 
 const HDC: string = process.env.OHOS_PW_HDC ?? '/data/service/hnp/bin/hdc'
 const BUNDLE: string = process.env.OHOS_PW_BUNDLE ?? 'com.huawei.hmos.browser'
-const LAUNCH_URL: string = process.env.OHOS_PW_LAUNCH_URL ?? 'http://localhost:5173'
+const LAUNCH_URL: string = process.env.OHOS_PW_LAUNCH_URL ?? 'about:blank'
 
 const HDC_OPTS: ExecFileSyncOptions = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] } as const
 
