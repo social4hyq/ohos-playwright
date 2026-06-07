@@ -80,12 +80,18 @@ hdc shell "bm dump -a" | grep -iE "browser|webview|chrom|arkweb"
 
 之前跑崩了，hdc 转发规则还残留着。`hdc fport ls` 看有哪些，`hdc fport rm tcp:<端口> localabstract:<socket>` 清掉。
 
-**`await page.goto('/foo')` 不拼 baseURL**
+**`page.goto('/foo')` 没有自动拼上 baseURL**
 
-`use.baseURL` 没在 `playwright.config.ts` 里设。
+Playwright 标准行为是 `/foo` 自动变成 `http://localhost:5173/foo`。如果没生效，检查 `playwright.config.ts` 里 `use.baseURL` 有没有设置。
 
 ---
 
-Playwright ≥ 1.59 · Node ≥ 24 · `com.huawei.hmos.browser`（Chromium 132）
+## 兼容性
+
+| | 要求 |
+|---|---|
+| Node | ≥ 24 |
+| Playwright | ≥ 1.59 |
+| 已验证 | `com.huawei.hmos.browser`（Chromium 132） |
 
 MIT
