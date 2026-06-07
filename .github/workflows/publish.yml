@@ -18,7 +18,7 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
-      - name: Verify package.json version matches release tag
+      - name: Verify version matches tag
         run: |
           tag="${GITHUB_REF_NAME#v}"
           pkg="$(node -p "require('./package.json').version")"
@@ -28,6 +28,8 @@ jobs:
           fi
 
       - run: npm install
+
+      - run: npm run build
 
       - run: npm test
 
