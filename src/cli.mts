@@ -13,7 +13,7 @@ const req = createRequire(resolve(process.cwd(), 'noop.mjs'))
 
 // @playwright/test's exports map blocks direct subpath resolution to cli.js,
 // so resolve the main entry and walk up to the package root, then append it.
-let pwEntry
+let pwEntry: string
 try {
   pwEntry = req.resolve('@playwright/test')
 } catch {
@@ -26,10 +26,21 @@ try {
   process.exit(1)
 }
 let pkgRoot = dirname(pwEntry)
-while (!existsSync(resolve(pkgRoot, 'package.json'))) pkgRoot = dirname(pkgRoot)
+let levels = 0
+while (!existsSync(resolve(pkgRoot, 'package.json')) && levels++ < 50) {
+  pkgRoot = dirname(pkgRoot)
+}
+if (!existsSync(resolve(pkgRoot, 'package.json'))) {
+  console.error(
+    `[ohos-playwright] Cannot find @playwright/test package.json (walked up from ${dirname(pwEntry)}). ` +
+    'Please verify @playwright/test is correctly installed.',
+  )
+  process.exit(1)
+}
 const playwrightCli = resolve(pkgRoot, 'cli.js')
 
-const register = resolve(import.meta.dirname, 'register.mjs')
+// Node 24 has native TypeScript support; register.mts is resolved directly.
+const register = resolve(import.meta.dirname!, 'register.mts')
 
 const child = spawn(
   process.execPath,

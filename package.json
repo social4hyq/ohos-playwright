@@ -1,6 +1,6 @@
 {
   "name": "ohos-playwright",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Playwright adapter for OpenHarmony / ArkWeb via hdc + CDP",
   "license": "MIT",
   "author": "social4hyq",
@@ -24,29 +24,26 @@
   ],
   "type": "module",
   "scripts": {
-    "test": "node --test src/loader.test.mjs"
+    "test": "node --test src/*.test.mts",
+    "typecheck": "tsc --noEmit"
   },
   "engines": {
     "node": ">=24"
   },
   "exports": {
-    "./fixture": "./src/fixture.mjs",
-    "./setup": "./src/setup.mjs",
-    "./teardown": "./src/teardown.mjs",
-    "./register": "./src/register.mjs",
-    "./loader": "./src/loader.mjs",
-    "./config": {
-      "types": "./src/config.d.mts",
-      "default": "./src/config.mjs"
-    }
+    "./fixture": "./src/fixture.mts",
+    "./setup": "./src/setup.mts",
+    "./teardown": "./src/teardown.mts",
+    "./register": "./src/register.mts",
+    "./loader": "./src/loader.mts",
+    "./config": "./src/config.mts"
   },
   "bin": {
-    "ohos-playwright": "src/cli.mjs"
+    "ohos-playwright": "./src/cli.mts"
   },
   "files": [
     "src",
-    "!src/*.test.mjs",
-    "SKILL.md"
+    "!src/*.test.mts"
   ],
   "peerDependencies": {
     "@playwright/test": ">=1.59.0"
@@ -54,5 +51,9 @@
   "publishConfig": {
     "access": "public",
     "provenance": true
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "typescript": "^6.0.3"
   }
 }

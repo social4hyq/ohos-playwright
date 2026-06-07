@@ -1,3 +1,5 @@
+import type { PlaywrightTestConfig } from '@playwright/test'
+
 // Wrap a base Playwright config so it transparently turns into an ArkWeb/CDP
 // run on OpenHarmony and stays stock everywhere else. Usage:
 //
@@ -7,7 +9,7 @@
 //   export default defineConfig(withOpenHarmony({ ...baseConfig }))
 //
 // On non-OpenHarmony hosts the input config is returned unchanged.
-export function withOpenHarmony(config) {
+export function withOpenHarmony(config: PlaywrightTestConfig): PlaywrightTestConfig {
   // Consult OHOS_PW_HOST, not process.platform — register.mjs has already
   // overwritten platform to 'linux' by the time this function runs.
   if (!process.env.OHOS_PW_HOST) return config
