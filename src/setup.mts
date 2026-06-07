@@ -183,7 +183,6 @@ export default async function globalSetup(): Promise<void> {
   console.log(`[ohos-playwright] locating ${BUNDLE}...`)
 
   // Batch ps + /proc/net/unix into a single hdc call.
-  let deviceState = fetchDeviceState()
   let pid = findBrowserPid()
 
   if (!pid) {
@@ -194,17 +193,10 @@ export default async function globalSetup(): Promise<void> {
   }
   console.log(`[ohos-playwright] browser pid=${pid}`)
 
-  // Reuse the /proc/net/unix snapshot if it's fresh (same shell call as ps above).
-  // If we waited for browser launch, re-fetch since the socket may be new.
-  let unixCache: string | undefined = pid ? undefined : deviceState.unix
-  if (!unixCache) {
-    // Re-fetch device state to get fresh /proc/net/unix after browser launch
-    deviceState = fetchDeviceState()
-    unixCache = deviceState.unix
-  }
-
+  // Wait for the DevTools socket to appear — each retry fetches fresh
+  // /proc/net/unix since the socket appears asynchronously after launch.
   const socket = await retry(
-    () => findDevToolsSocket(pid, unixCache),
+    () => findDevToolsSocket(pid),
     { max: 10, interval: 500, label: `DevTools socket not found for pid ${pid}` },
   ) as string
   console.log(`[ohos-playwright] socket=${socket}`)
