@@ -46,6 +46,15 @@ export default defineConfig(withOpenHarmony({ /* your config */ }))
 | `OHOS_PW_HDC` | `/data/service/hnp/bin/hdc` |
 | `OHOS_PW_AUTO_CONNECT` | auto (set `0` to skip device auto-connect) |
 | `OHOS_PW_INFO_PATH` | `<tmpdir>/ohos-playwright-cdp.json` |
+| `OHOS_PW_UI_HOST` | `0.0.0.0` — used when `--ui` is passed without `--ui-host` on an OHOS device |
+| `OHOS_PW_UI_PORT` | `8765` — used when `--ui` is passed without `--ui-port` on an OHOS device |
+
+### `--ui` and `--debug` on an OHOS device
+
+Playwright's bundled Chromium cannot exec inside the OHOS app sandbox, which breaks the local windows that `--ui` and `--debug` normally open.
+
+- **`--ui`** auto-injects `--ui-host=0.0.0.0 --ui-port=8765` when run on OHOS, so the UI server starts as HTTP-only. Open `http://<device-ip>:8765` in any browser on your LAN.
+- **`--debug`** has no equivalent escape hatch; running it on OHOS exits with guidance. Use `await page.pause()` inside a test, or run `--debug` from a host (Linux/macOS/Windows) connected to the device via hdc.
 
 ## Compatibility
 

@@ -1,6 +1,6 @@
 {
   "name": "ohos-playwright",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Playwright adapter for OpenHarmony / ArkWeb via hdc + CDP",
   "license": "MIT",
   "author": "social4hyq",

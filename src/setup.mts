@@ -47,12 +47,16 @@ function fetchDeviceState(): { ps: string; unix: string } {
 
 export function findBrowserPid(): number | null {
   const { ps } = fetchDeviceState()
+  // Match the main process only: its cmdline equals BUNDLE exactly.
+  // Child processes like "com.huawei.hmos.browser:render" / ":gpu" must be
+  // excluded — the DevTools abstract socket only exists on the main process,
+  // so picking a child PID leads to socket-not-found errors downstream.
   for (const line of ps.split('\n')) {
     const t = line.trim()
     if (!t) continue
     const s = t.indexOf(' ')
     if (s === -1) continue
-    if (t.slice(s + 1).includes(BUNDLE)) {
+    if (t.slice(s + 1).trim() === BUNDLE) {
       const pid = parseInt(t.slice(0, s), 10)
       if (!Number.isNaN(pid)) return pid
     }

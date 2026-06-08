@@ -42,9 +42,42 @@ const playwrightCli = resolve(pkgRoot, 'cli.js')
 // Node 24 has native TypeScript support; register.mts is resolved directly.
 const register = resolve(import.meta.dirname!, 'register.mts')
 
+const argv = process.argv.slice(2)
+
+// On OpenHarmony, Playwright's bundled Chromium cannot exec inside the app
+// sandbox (unsigned ELF). Two of Playwright's CLI modes try to launch it:
+//   --ui    : opens a Chromium window to host the UI app
+//   --debug : opens a Chromium window for the Inspector (via PWDEBUG=1)
+// For --ui, Playwright skips the local Chromium when --ui-host or --ui-port
+// is provided (runner/index.js: runUIMode). Inject defaults so users don't
+// need to remember the flags. For --debug, no such escape hatch exists —
+// fail fast with guidance.
+if ((process.platform as string) === 'openharmony') {
+  const hasFlag = (name: string): boolean =>
+    argv.some((a) => a === name || a.startsWith(name + '='))
+
+  if (hasFlag('--debug')) {
+    console.error(
+      '[ohos-playwright] --debug is not supported on OpenHarmony.\n' +
+      '  Playwright Inspector launches a bundled Chromium that the OHOS app sandbox cannot exec.\n' +
+      '  Alternatives:\n' +
+      '    1) Use `await page.pause()` inside a test for step-through inspection.\n' +
+      '    2) Run `ohos-playwright test --debug` from a host (Linux/macOS/Windows) connected to the device via hdc.',
+    )
+    process.exit(2)
+  }
+
+  if (hasFlag('--ui') && !hasFlag('--ui-host') && !hasFlag('--ui-port')) {
+    const host = process.env.OHOS_PW_UI_HOST ?? '0.0.0.0'
+    const port = process.env.OHOS_PW_UI_PORT ?? '8765'
+    argv.push(`--ui-host=${host}`, `--ui-port=${port}`)
+    console.error(`[ohos-playwright] UI server bound to ${host}:${port} — open http://<device-ip>:${port} in any browser. Override with OHOS_PW_UI_HOST / OHOS_PW_UI_PORT.`)
+  }
+}
+
 const child = spawn(
   process.execPath,
-  ['--import', register, playwrightCli, ...process.argv.slice(2)],
+  ['--import', register, playwrightCli, ...argv],
   { stdio: 'inherit' },
 )
 child.on('exit', (code, signal) => {

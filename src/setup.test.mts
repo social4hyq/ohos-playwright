@@ -56,7 +56,7 @@ function findBrowserPid(psOutput: string, bundle: string): number | null {
     const s = trimmed.indexOf(' ')
     if (s === -1) continue
     const pid = parseInt(trimmed.slice(0, s), 10)
-    if (!Number.isNaN(pid) && trimmed.slice(s + 1).includes(bundle)) return pid
+    if (!Number.isNaN(pid) && trimmed.slice(s + 1).trim() === bundle) return pid
   }
   return null
 }
@@ -68,8 +68,14 @@ describe('findBrowserPid()', () => {
   })
   it('null when not found', () => { assert.equal(findBrowserPid('1 /init', B), null) })
   it('null for empty', () => { assert.equal(findBrowserPid('', B), null) })
-  it('first match wins', () => {
-    assert.equal(findBrowserPid('9999 ' + B + '.hlp\n1234 ' + B, B), 9999)
+  it('skips child processes (:render / :gpu) and picks the main process', () => {
+    // Main process cmdline equals BUNDLE exactly; child processes have a
+    // ":render" / ":gpu" suffix. DevTools socket only lives on the main pid.
+    const ps = '6414 ' + B + ':render\n11960 ' + B + ':gpu\n11247 ' + B
+    assert.equal(findBrowserPid(ps, B), 11247)
+  })
+  it('does not match bundle as a prefix', () => {
+    assert.equal(findBrowserPid('9999 ' + B + '.hlp', B), null)
   })
   it('ignores header line', () => {
     assert.equal(findBrowserPid('PID\n1234 ' + B, B), 1234)
