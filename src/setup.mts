@@ -10,6 +10,17 @@ const HDC: string = process.env.OHOS_PW_HDC ?? '/data/service/hnp/bin/hdc'
 const BUNDLE: string = process.env.OHOS_PW_BUNDLE ?? 'com.huawei.hmos.browser'
 const LAUNCH_URL: string = process.env.OHOS_PW_LAUNCH_URL ?? 'about:blank'
 
+// 校验环境变量，防止通过 hdc shell 注入恶意命令。
+// BUNDLE 必须是点分隔的 Android 风格包名；LAUNCH_URL 必须是合法 URL。
+const SAFE_BUNDLE_RE = /^[a-zA-Z][a-zA-Z0-9.]*$/
+const SAFE_URL_RE = /^[a-z][a-z0-9+.-]*:(?:\/\/)?\S+$/i
+if (!SAFE_BUNDLE_RE.test(BUNDLE) || BUNDLE.length > 256) {
+  throw new Error(`[ohos-playwright] OHOS_PW_BUNDLE "${BUNDLE}" 不是合法的包名（期望: com.example.app）`)
+}
+if (!SAFE_URL_RE.test(LAUNCH_URL) || LAUNCH_URL.length > 2048) {
+  throw new Error(`[ohos-playwright] OHOS_PW_LAUNCH_URL "${LAUNCH_URL}" 不是合法的 URL`)
+}
+
 const HDC_OPTS: ExecFileSyncOptions = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] } as const
 
 function hdc(args: string[], opts?: Partial<ExecFileSyncOptions>): string {
@@ -211,7 +222,12 @@ export default async function globalSetup(): Promise<void> {
 
   const probe = await probeCdp(port)
   if (!probe.ok) throw new Error(`CDP probe failed: ${probe.err || probe.body}`)
-  const info = JSON.parse(probe.body!)
+  let info: Record<string, unknown>
+  try {
+    info = JSON.parse(probe.body!)
+  } catch {
+    throw new Error(`CDP response is not valid JSON (body preview: ${probe.body?.slice(0, 300) ?? '(empty)'})`)
+  }
   console.log(`[ohos-playwright] CDP ready: ${info.Browser}`)
 
   mkdirSync(dirname(INFO_PATH), { recursive: true })
