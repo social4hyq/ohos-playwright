@@ -78,8 +78,15 @@ if ((process.platform as string) === 'openharmony') {
 const child = spawn(
   process.execPath,
   ['--import', register, playwrightCli, ...argv],
-  { stdio: 'inherit' },
+  { stdio: ['inherit', 'pipe', 'pipe'] },
 )
+
+// Playwright prints its own binary name in report hints (e.g. "playwright show-report").
+// Rewrite them so users see the ohos-playwright counterpart.
+const RE_WRITE = /\bplaywright\s+(show-report|test|open)\b/g
+child.stdout!.on('data', (d: Buffer) => process.stdout.write(d.toString().replace(RE_WRITE, 'ohos-playwright $1')))
+child.stderr!.on('data', (d: Buffer) => process.stderr.write(d.toString().replace(RE_WRITE, 'ohos-playwright $1')))
+
 child.on('exit', (code, signal) => {
   if (signal) process.kill(process.pid, signal)
   else process.exit(code ?? 1)
