@@ -1,9 +1,11 @@
 import { execFileSync, type ExecFileSyncOptions } from 'node:child_process'
-import { writeFileSync, mkdirSync, existsSync } from 'node:fs'
-import { isAbsolute } from 'node:path'
+import { writeFileSync, mkdirSync, existsSync, copyFileSync } from 'node:fs'
+import { isAbsolute, join } from 'node:path'
 import { createServer } from 'node:net'
 import { dirname } from 'node:path'
 import { createInterface } from 'node:readline'
+import { homedir } from 'node:os'
+import { generateKeyPairSync } from 'node:crypto'
 import http from 'node:http'
 import { INFO_PATH } from './info-path.mts'
 
@@ -174,8 +176,58 @@ export function tryLocalDevice(): boolean {
   return false
 }
 
+// HarmonyOS host 自愈：缺 hdc key 时自动生成 RSA-3072，并重启本机 hdc server。
+// 仅在 host 看似 HarmonyOS 时触发（/data/service/hnp/bin/hdc 存在）；最多 1 次。
+const HARMONY_HDC_PATH = '/data/service/hnp/bin/hdc'
+const HARMONY_KEY_DIR = join(homedir(), '.harmony')
+let selfHealAttempted = false
+
+function isHarmonyHost(): boolean { return existsSync(HARMONY_HDC_PATH) }
+
+export function ensureHdcKey(): boolean {
+  const priv = join(HARMONY_KEY_DIR, 'hdckey')
+  const pub = join(HARMONY_KEY_DIR, 'hdckey.pub')
+  if (existsSync(priv) && existsSync(pub)) return false
+  mkdirSync(HARMONY_KEY_DIR, { recursive: true })
+  for (const f of [priv, pub]) {
+    if (existsSync(f)) { try { copyFileSync(f, f + '.bak') } catch {} }
+  }
+  const { privateKey, publicKey } = generateKeyPairSync('rsa', {
+    modulusLength: 3072,
+    privateKeyEncoding: { type: 'pkcs1', format: 'pem' },
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+  })
+  writeFileSync(priv, privateKey, { mode: 0o600 })
+  writeFileSync(pub, publicKey, { mode: 0o644 })
+  console.warn(`[ohos-playwright] generated RSA-3072 hdc key at ${priv} (设备首次连接需 UI 授权)`)
+  return true
+}
+
+async function restartHdcServer(): Promise<void> {
+  try { hdc(['kill']) } catch {}
+  await sleep(500)
+  try { hdc(['start']) } catch (e: unknown) {
+    console.warn(`[ohos-playwright] hdc start failed: ${e instanceof Error ? e.message : e}`)
+  }
+}
+
+async function selfHealHdc(): Promise<void> {
+  if (selfHealAttempted) return
+  selfHealAttempted = true
+  if (process.env.OHOS_PW_AUTO_HEAL === '0') return
+  if (!isHarmonyHost()) return
+  console.log('[ohos-playwright] self-heal: 检查 hdc key 与重启本机 hdc server...')
+  const keyChanged = ensureHdcKey()
+  await restartHdcServer()
+  await sleep(keyChanged ? 1500 : 500)
+}
+
 export async function ensureDeviceConnected(): Promise<void> {
   if (process.env.OHOS_PW_AUTO_CONNECT === '0') return
+  if (hasDeviceConnected()) return
+  if (tryLocalDevice()) return
+
+  await selfHealHdc()
   if (hasDeviceConnected()) return
   if (tryLocalDevice()) return
 

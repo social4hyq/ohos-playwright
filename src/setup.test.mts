@@ -2,7 +2,9 @@ import { describe, it, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { resolve } from 'node:path'
+import { resolve, join } from 'node:path'
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
@@ -101,6 +103,59 @@ describe('discoverDevices() parsing', () => {
   it('empty for no match', () => {
     assert.deepEqual(parseDiscover('[Info]total:0'), [])
     assert.deepEqual(parseDiscover(''), [])
+  })
+})
+
+describe('ensureHdcKey() — self-heal key generation', () => {
+  let origHome: string | undefined
+  let tmpHome: string
+
+  const setupPath = resolve(fileURLToPath(import.meta.url), '..', 'setup.mts')
+
+  beforeEach(() => {
+    origHome = process.env.HOME
+    tmpHome = resolve(tmpdir(), `ohos-pw-home-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    mkdirSync(tmpHome, { recursive: true })
+    process.env.HOME = tmpHome
+  })
+  afterEach(() => {
+    if (origHome !== undefined) process.env.HOME = origHome
+    try { rmSync(tmpHome, { recursive: true, force: true }) } catch {}
+  })
+
+  function runEnsureKey(home: string): { status: number | null; stdout: string; stderr: string } {
+    const code = `
+      process.env.HOME = ${JSON.stringify(home)};
+      import(${JSON.stringify(setupPath)}).then(m => {
+        const created = m.ensureHdcKey();
+        const fs = require('node:fs'); const path = require('node:path');
+        const priv = path.join(${JSON.stringify(home)}, '.harmony', 'hdckey');
+        const pub = path.join(${JSON.stringify(home)}, '.harmony', 'hdckey.pub');
+        const privExists = fs.existsSync(priv);
+        const pubExists = fs.existsSync(pub);
+        const privIsPem = privExists ? fs.readFileSync(priv,'utf8').startsWith('-----BEGIN') : false;
+        const pubIsPem = pubExists ? fs.readFileSync(pub,'utf8').startsWith('-----BEGIN PUBLIC KEY-----') : false;
+        console.log(JSON.stringify({ created, privExists, pubExists, privIsPem, pubIsPem }));
+      }).catch(e => { console.error(e.message); process.exit(2); });
+    `
+    return spawnSync(process.execPath, ['--experimental-strip-types', '-e', code], { encoding: 'utf8' })
+  }
+
+  it('generates RSA-3072 key pair when missing', () => {
+    const r = runEnsureKey(tmpHome)
+    assert.equal(r.status, 0, `stderr: ${r.stderr}`)
+    const result = JSON.parse(r.stdout.trim())
+    assert.deepEqual(result, { created: true, privExists: true, pubExists: true, privIsPem: true, pubIsPem: true })
+  })
+
+  it('returns false when key already exists', () => {
+    const keyDir = join(tmpHome, '.harmony')
+    mkdirSync(keyDir, { recursive: true })
+    writeFileSync(join(keyDir, 'hdckey'), 'dummy')
+    writeFileSync(join(keyDir, 'hdckey.pub'), 'dummy')
+    const r = runEnsureKey(tmpHome)
+    assert.equal(r.status, 0, `stderr: ${r.stderr}`)
+    assert.equal(JSON.parse(r.stdout.trim()).created, false)
   })
 })
 
