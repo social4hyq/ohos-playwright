@@ -126,6 +126,7 @@ describe('ensureHdcKey() — self-heal key generation', () => {
   function runEnsureKey(home: string): { status: number | null; stdout: string; stderr: string } {
     const code = `
       process.env.HOME = ${JSON.stringify(home)};
+      process.env.OHOS_PW_HDC = ${JSON.stringify(process.execPath)};
       import(${JSON.stringify(setupPath)}).then(m => {
         const created = m.ensureHdcKey();
         const fs = require('node:fs'); const path = require('node:path');
@@ -195,6 +196,7 @@ describe('ensureDeviceConnected() — AUTO_CONNECT=0', () => {
 
   it('skips when OHOS_PW_AUTO_CONNECT=0', async () => {
     process.env.OHOS_PW_AUTO_CONNECT = '0'
+    process.env.OHOS_PW_HDC ??= process.execPath
     const m = await import('./setup.mts')
     assert.equal(typeof m.ensureDeviceConnected, 'function')
     // ensureDeviceConnected should return immediately (no hdc calls)
