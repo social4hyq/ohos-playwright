@@ -27,6 +27,13 @@ if (!isAbsolute(HDC) || !existsSync(HDC)) {
   throw new Error(`[ohos-playwright] OHOS_PW_HDC "${HDC}" 不是有效的可执行文件路径（需绝对路径且文件存在）`)
 }
 
+// HarmonyOS host 提示：系统自带 hdc 与本机设备 hdcd 协议匹配；
+// 其他 hdc（如 OHOS SDK 3.x）连本机设备会握手失败。
+const SYSTEM_HDC_ON_HARMONY = '/data/service/hnp/bin/hdc'
+if (existsSync(SYSTEM_HDC_ON_HARMONY) && HDC !== SYSTEM_HDC_ON_HARMONY) {
+  console.warn(`[ohos-playwright] 注意：当前 OHOS_PW_HDC="${HDC}"，但系统自带 ${SYSTEM_HDC_ON_HARMONY} 才能与本机 HarmonyOS 设备通信；如握手失败请改用系统 hdc。`)
+}
+
 const HDC_OPTS: ExecFileSyncOptions = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] } as const
 
 function hdc(args: string[], opts?: Partial<ExecFileSyncOptions>): string {
@@ -142,8 +149,12 @@ export function discoverDevices(): string[] {
   return out.split('\n').map(s => s.trim()).filter(s => IP_PORT_RE.test(s))
 }
 
+// 已连接时 hdc tconn 返回 "Target is connected, repeat operation"，也视作成功。
 function tconn(addr: string): boolean {
-  try { return hdc(['tconn', addr], { timeout: 10000 }).includes('Connect OK') } catch { return false }
+  try {
+    const out = hdc(['tconn', addr], { timeout: 10000 })
+    return out.includes('Connect OK') || out.includes('repeat operation')
+  } catch { return false }
 }
 
 function promptAddress(): Promise<string> {
