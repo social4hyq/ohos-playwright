@@ -1,5 +1,8 @@
 import { describe, it, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
@@ -98,6 +101,34 @@ describe('discoverDevices() parsing', () => {
   it('empty for no match', () => {
     assert.deepEqual(parseDiscover('[Info]total:0'), [])
     assert.deepEqual(parseDiscover(''), [])
+  })
+})
+
+describe('OHOS_PW_HDC validation (module-load)', () => {
+  const setupPath = resolve(fileURLToPath(import.meta.url), '..', 'setup.mts')
+  function loadWith(hdc: string) {
+    return spawnSync(process.execPath, ['--experimental-strip-types', '-e', `import('${setupPath}').then(()=>{process.exit(0)}).catch(e=>{process.stderr.write(e.message);process.exit(2)})`], {
+      encoding: 'utf8',
+      env: { ...process.env, OHOS_PW_HDC: hdc },
+    })
+  }
+
+  it('rejects relative path', () => {
+    const r = loadWith('hdc')
+    assert.equal(r.status, 2)
+    assert.match(r.stderr, /OHOS_PW_HDC "hdc" 不是有效的可执行文件路径/)
+  })
+
+  it('rejects non-existent absolute path', () => {
+    const r = loadWith('/nonexistent/path/to/hdc-xyz-12345')
+    assert.equal(r.status, 2)
+    assert.match(r.stderr, /不是有效的可执行文件路径/)
+  })
+
+  it('accepts a valid absolute path (node itself)', () => {
+    const r = loadWith(process.execPath)
+    // 模块加载应当通过校验（即便后续 ensureDeviceConnected 未运行）
+    assert.equal(r.status, 0, `stderr: ${r.stderr}`)
   })
 })
 

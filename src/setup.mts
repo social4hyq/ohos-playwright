@@ -1,5 +1,6 @@
 import { execFileSync, type ExecFileSyncOptions } from 'node:child_process'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, existsSync } from 'node:fs'
+import { isAbsolute } from 'node:path'
 import { createServer } from 'node:net'
 import { dirname } from 'node:path'
 import { createInterface } from 'node:readline'
@@ -19,6 +20,9 @@ if (!SAFE_BUNDLE_RE.test(BUNDLE) || BUNDLE.length > 256) {
 }
 if (!SAFE_URL_RE.test(LAUNCH_URL) || LAUNCH_URL.length > 2048) {
   throw new Error(`[ohos-playwright] OHOS_PW_LAUNCH_URL "${LAUNCH_URL}" 不是合法的 URL`)
+}
+if (!isAbsolute(HDC) || !existsSync(HDC)) {
+  throw new Error(`[ohos-playwright] OHOS_PW_HDC "${HDC}" 不是有效的可执行文件路径（需绝对路径且文件存在）`)
 }
 
 const HDC_OPTS: ExecFileSyncOptions = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] } as const

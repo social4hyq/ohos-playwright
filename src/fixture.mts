@@ -19,19 +19,9 @@ export const test = base.extend({
   context: async (
     { browser }: { browser: Browser },
     use: (c: BrowserContext) => Promise<void>,
-    testInfo: { project: { use: { baseURL?: string } } },
   ) => {
-    const ctx = browser.contexts()[0]
-    const baseURL = testInfo.project.use.baseURL
-    if (baseURL) {
-      try {
-        const opts = (ctx as unknown as Record<string, unknown>)._options as Record<string, unknown> | undefined
-        if (opts && typeof opts === 'object') opts.baseURL = baseURL
-      } catch (e: unknown) {
-        console.warn(`[ohos-playwright] Failed to inject baseURL: ${e instanceof Error ? e.message : e}`)
-      }
-    }
-    await use(ctx)
+    // baseURL 通过 page fixture 重写 page.goto 实现；不再触碰 BrowserContext 私有字段 _options。
+    await use(browser.contexts()[0])
   },
 
   page: async (
