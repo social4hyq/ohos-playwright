@@ -32,6 +32,7 @@
     "node": ">=24"
   },
   "exports": {
+    ".": "./dist/fixture.mjs",
     "./fixture": "./dist/fixture.mjs",
     "./setup": "./dist/setup.mjs",
     "./teardown": "./dist/teardown.mjs",
