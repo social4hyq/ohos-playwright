@@ -31,10 +31,44 @@ export default defineConfig(withOpenHarmony({ /* your config */ }))
 { "scripts": { "test:e2e": "ohos-playwright test" } }
 ```
 
+## Supported APIs
+
+The following Playwright APIs have been validated on ArkWeb / HarmonyOS 6.1 (Chromium 132):
+
+| Category | APIs |
+|---|---|
+| Network interception | `page.route()`, `route.fulfill()`, `route.abort()`, `page.unroute()` |
+| Screenshot | `page.screenshot({ type: 'jpeg' \| 'png' })`, `locator.screenshot()` |
+| Geolocation | `context.setGeolocation()`, `context.grantPermissions(['geolocation'])` |
+| Device emulation | `emulateDevice` fixture (see below) |
+| Input | `locator.fill()`, `locator.type()`, `keyboard.press()` |
+| Cookies | `context.addCookies()`, `context.cookies()`, `context.clearCookies()` |
+
+### `emulateDevice` fixture
+
+Because `newContext()` is not supported in connectOverCDP mode, device emulation is exposed as a Playwright fixture parameter backed by CDP `Emulation.*` commands.
+
+```ts
+import { test, expect } from '@playwright/test'
+import type { DeviceDescriptor } from 'ohos-playwright/fixture'
+
+test('mobile viewport', async ({ page, emulateDevice }) => {
+  await emulateDevice({
+    viewport: { width: 375, height: 812 },
+    deviceScaleFactor: 3,
+    isMobile: true,
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) ...',
+  })
+  expect(await page.evaluate(() => window.innerWidth)).toBe(375)
+})
+```
+
+`emulateDevice` settings persist for the lifetime of the page. Call it again with `{ viewport: { width: 1280, height: 720 }, isMobile: false }` to restore defaults.
+
 ## Limitations
 
 - **Chromium only.** firefox and webkit aren't available on HarmonyOS.
-- **One context, one page.** `newContext()` / `newPage()` aren't supported. Isolate tests with `localStorage.clear()` + `page.reload()`.
+- **One context, one page.** `newContext()` / `newPage()` aren't supported. Isolate tests with `localStorage.clear()` + `page.reload()`. For device emulation use the `emulateDevice` fixture instead of `browser.newContext({ ...device })`.
 - **`process.platform` reads `'linux'`** during the run — we patch it because Playwright's hostPlatform detection only branches on linux/darwin/win32 and falls through to `<unknown>` on openharmony. For real platform checks use `process.env.OHOS_PW_HOST`.
 
 ## Environment variables
