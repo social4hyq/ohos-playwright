@@ -41,7 +41,9 @@ export const test = base.extend<{
     const pages = context.pages()
     if (pages.length === 0) throw new Error('No pages in ArkWeb CDP context. Open a tab first.')
     const page = pages.find((p) => p.url().startsWith('http://localhost')) ?? pages[0]
+    const ctxEmit = (context as unknown as { emit: (e: string, v: unknown) => void }).emit.bind(context)
 
+    // Patch baseURL
     const baseURL = testInfo.project.use.baseURL
     if (baseURL) {
       const root = baseURL.replace(/\/+$/, '')
@@ -51,7 +53,84 @@ export const test = base.extend<{
       ) as typeof page.goto
     }
 
-    await use(page)
+    // connectOverCDP reuses an existing tab — Playwright has no record of its
+    // viewport size and viewportSize() returns null. Pre-fetch via CDP.
+    const session = await context.newCDPSession(page)
+    try {
+      const { cssVisualViewport } = await session.send('Page.getLayoutMetrics' as 'Page.getLayoutMetrics')
+      const cached = {
+        width: Math.round((cssVisualViewport as { clientWidth: number }).clientWidth),
+        height: Math.round((cssVisualViewport as { clientHeight: number }).clientHeight),
+      }
+      const origViewportSize = page.viewportSize.bind(page)
+      page.viewportSize = () => origViewportSize() ?? cached
+    } catch {
+      // Non-critical — viewportSize() will still return null if CDP call fails.
+    } finally {
+      await session.detach()
+    }
+
+    // ArkWeb's new tab from window.open() is invisible to CDP (Target.createTarget hangs,
+    // Target.targetCreated never fires). Intercept via an init script:
+    //   - queue the URL for our poller
+    //   - return null (Window object hangs CDP serialization if returned)
+    // Guard against multiple addInitScript calls across tests accumulating overrides.
+    const origEvaluate = page.evaluate.bind(page)
+    const alreadyPatched = (page as unknown as Record<string, unknown>)['__ohosPopupPatched']
+    if (!alreadyPatched) {
+      ;(page as unknown as Record<string, unknown>)['__ohosPopupPatched'] = true
+      await page.addInitScript(() => {
+        if ((window as unknown as Record<string, unknown>)['__ohosPopupPatched']) return
+        ;(window as unknown as Record<string, unknown>)['__ohosPopupPatched'] = true
+        ;(window as unknown as Record<string, unknown>)['__ohosPopupQueue'] = [] as Array<{ url: string }>
+        window.open = (url?: string | URL) => {
+          ;(
+            (window as unknown as Record<string, unknown>)['__ohosPopupQueue'] as Array<{ url: string }>
+          ).push({ url: String(url ?? '') })
+          return null  // Window object hangs CDP serialization — return null instead
+        }
+      })
+    }
+    const popupPoller = setInterval(async () => {
+      try {
+        const pending = await origEvaluate(() => {
+          const q = (window as unknown as Record<string, unknown>)['__ohosPopupQueue'] as Array<{ url: string }>
+          ;(window as unknown as Record<string, unknown>)['__ohosPopupQueue'] = []
+          return q
+        })
+        for (const { url } of pending ?? []) {
+          // context.newPage() calls Target.createTarget which hangs in ArkWeb.
+          // Emit a minimal stub — satisfies waitForLoadState / url / close.
+          const stub = {
+            waitForLoadState: async () => {},
+            url: () => url,
+            close: async () => {},
+          }
+          ctxEmit('page', stub as unknown as import('@playwright/test').Page)
+        }
+      } catch {}
+    }, 150)
+
+    // evaluate() exceptions reject the promise but never become pageerror events
+    // (CDP catches them before they become uncaught). Intercept and re-emit.
+    // Save and restore to prevent wrapper accumulation across tests on the same page object.
+    const savedEvaluate = (page as unknown as Record<string, unknown>)['evaluate'] as typeof origEvaluate
+    ;(page as unknown as { evaluate: unknown }).evaluate = async (fn: unknown, arg?: unknown) => {
+      try {
+        return await origEvaluate(fn as Parameters<typeof origEvaluate>[0], arg as Parameters<typeof origEvaluate>[1])
+      } catch (e: unknown) {
+        const err = e instanceof Error ? e : new Error(String(e))
+        ;(page as unknown as { emit: (e: string, v: unknown) => void }).emit('pageerror', err)
+      }
+    }
+
+    try {
+      await use(page)
+    } finally {
+      clearInterval(popupPoller)
+      // Restore evaluate to prevent wrapper accumulation across tests.
+      ;(page as unknown as { evaluate: unknown }).evaluate = savedEvaluate
+    }
   },
 
   emulateDevice: async ({ page }, use) => {
