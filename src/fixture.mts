@@ -3,11 +3,20 @@ import { test as base, chromium } from '@playwright/test'
 import type { Browser, BrowserContext, Page } from '@playwright/test'
 import { INFO_PATH, type CdpInfo } from './info-path.mts'
 
+export interface DeviceDescriptor {
+  viewport: { width: number; height: number }
+  deviceScaleFactor?: number
+  isMobile?: boolean
+  userAgent?: string
+}
+
 function readEndpoint(): string {
   return (JSON.parse(readFileSync(INFO_PATH, 'utf8')) as CdpInfo).endpoint
 }
 
-export const test = base.extend({
+export const test = base.extend<{
+  emulateDevice: (descriptor: DeviceDescriptor) => Promise<void>
+}>({
   browser: [
     async ({}, use: (b: Browser) => Promise<void>) => {
       const browser = await chromium.connectOverCDP(readEndpoint())
@@ -43,6 +52,27 @@ export const test = base.extend({
     }
 
     await use(page)
+  },
+
+  emulateDevice: async ({ page }, use) => {
+    await use(async (descriptor: DeviceDescriptor) => {
+      const session = await page.context().newCDPSession(page)
+      try {
+        await session.send('Emulation.setDeviceMetricsOverride', {
+          width: descriptor.viewport.width,
+          height: descriptor.viewport.height,
+          deviceScaleFactor: descriptor.deviceScaleFactor ?? 1,
+          mobile: descriptor.isMobile ?? false,
+        })
+        if (descriptor.userAgent) {
+          await session.send('Emulation.setUserAgentOverride', {
+            userAgent: descriptor.userAgent,
+          })
+        }
+      } finally {
+        await session.detach()
+      }
+    })
   },
 })
 
