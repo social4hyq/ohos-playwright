@@ -28,9 +28,17 @@ export const test = base.extend<{
   context: async (
     { browser }: { browser: Browser },
     use: (c: BrowserContext) => Promise<void>,
+    testInfo: { project: { use: { baseURL?: string } } },
   ) => {
-    // baseURL 通过 page fixture 重写 page.goto 实现；不再触碰 BrowserContext 私有字段 _options。
-    await use(browser.contexts()[0])
+    const ctx = browser.contexts()[0]
+    // Inject baseURL into the context's private _options so that internal
+    // Playwright URL resolution (toHaveURL, waitForURL, locators) works for
+    // SPA-navigated pages — page.goto patching alone is not sufficient.
+    const baseURL = testInfo.project.use.baseURL
+    if (baseURL) {
+      ;(ctx as unknown as { _options: Record<string, unknown> })._options.baseURL = baseURL
+    }
+    await use(ctx)
   },
 
   page: async (
