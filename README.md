@@ -43,6 +43,12 @@ The following Playwright APIs have been validated on ArkWeb / HarmonyOS 6.1 (Chr
 | Device emulation | `emulateDevice` fixture (see below) |
 | Input | `locator.fill()`, `locator.type()`, `keyboard.press()` |
 | Cookies | `context.addCookies()`, `context.cookies()`, `context.clearCookies()` |
+| Dialog | `page.on('dialog')`, `dialog.accept()`, `dialog.dismiss()`, `dialog.message()`, `dialog.type()` |
+| Popup | `context.waitForEvent('page')` + `window.open()` — stub Page with `url()`, `waitForLoadState()`, `close()` |
+| Page events | `page.on('pageerror')`, `page.on('console')`, `page.on('download')` |
+| Frames | `page.frames()`, `page.mainFrame()`, `frame.url()` |
+| Viewport | `page.viewportSize()` (pre-fetched via `Page.getLayoutMetrics` for reused CDP tabs) |
+| Media emulation | `page.emulateMedia({ colorScheme })` |
 
 ### `emulateDevice` fixture
 
