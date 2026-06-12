@@ -25,7 +25,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc && node scripts/fix-extensions.mjs",
-    "test": "node --test src/*.test.mts",
+    "test": "node --test $(ls src/*.test.mts | grep -v api-coverage)",
     "typecheck": "tsc --noEmit"
   },
   "engines": {

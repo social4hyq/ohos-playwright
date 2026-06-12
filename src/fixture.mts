@@ -64,7 +64,7 @@ export const test = base.extend<{
           deviceScaleFactor: descriptor.deviceScaleFactor ?? 1,
           mobile: descriptor.isMobile ?? false,
         })
-        if (descriptor.userAgent) {
+        if (descriptor.userAgent !== undefined) {
           await session.send('Emulation.setUserAgentOverride', {
             userAgent: descriptor.userAgent,
           })

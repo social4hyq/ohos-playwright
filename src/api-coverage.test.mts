@@ -68,8 +68,8 @@ test('geolocation-emulation: setGeolocation + getCurrentPosition', async ({ page
   expect(coords.lat).toBeCloseTo(37.7749, 3)
   expect(coords.lon).toBeCloseTo(-122.4194, 3)
 
-  // 恢复
-  await context.setGeolocation({ latitude: 0, longitude: 0 })
+  // 恢复：null 清除覆盖，而非假冒坐标 {0,0}
+  await context.setGeolocation(null)
 })
 
 // ─── device-emulation ─────────────────────────────────────────────────────────
@@ -100,8 +100,8 @@ test('device-emulation: emulateDevice sets user-agent', async ({ page, emulateDe
   const reportedUA = await page.evaluate(() => navigator.userAgent)
   expect(reportedUA).toBe(ua)
 
-  // 恢复
-  await emulateDevice({ viewport: { width: 1280, height: 720 } })
+  // 恢复 viewport + 清除 UA（传空字符串触发 setUserAgentOverride）
+  await emulateDevice({ viewport: { width: 1280, height: 720 }, userAgent: '' })
 })
 
 // ─── input-api ────────────────────────────────────────────────────────────────
