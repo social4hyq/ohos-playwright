@@ -20,7 +20,25 @@ export const test = base.extend<{
   browser: [
     async ({}, use: (b: Browser) => Promise<void>) => {
       const browser = await chromium.connectOverCDP(readEndpoint())
-      await use(browser)
+      // ArkWeb CDP does not implement Target.createBrowserContext — connectOverCDP
+      // reuses the single existing context. browser.newContext() returns without
+      // throwing but produces an empty shell (0 pages) that silently fails every
+      // subsequent operation. Intercept and throw an explicit, actionable error
+      // so users aren't misled by the false-positive success.
+      const origNewContext = browser.newContext.bind(browser) as Browser['newContext']
+      ;(browser as unknown as { newContext: Browser['newContext'] }).newContext = (() => {
+        throw new Error(
+          'browser.newContext() is not supported in ArkWeb CDP mode (single context only). ' +
+          'Tests share one context and one page — isolate with localStorage.clear() + page.reload(). ' +
+          'See ohos-playwright README "Limitations" section.',
+        )
+      }) as Browser['newContext']
+      try {
+        await use(browser)
+      } finally {
+        // Restore in case the browser object is reused across workers.
+        ;(browser as unknown as { newContext: Browser['newContext'] }).newContext = origNewContext
+      }
     },
     { scope: 'worker' as const },
   ],
