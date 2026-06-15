@@ -163,6 +163,18 @@ export const test = base.extend<{
     await use(async (descriptor: DeviceDescriptor) => {
       const session = await page.context().newCDPSession(page)
       try {
+        // ArkWeb note: with mobile:true, Emulation.setDeviceMetricsOverride enables
+        // the mobile layout-viewport path and the passed width/height are ignored
+        // (window.innerWidth reads 980 regardless). Use isMobile:false for a
+        // precise viewport. See README "emulateDevice fixture" section.
+        if (descriptor.isMobile) {
+          console.warn(
+            '[ohos-playwright] emulateDevice({ isMobile: true }): ArkWeb renders at the 980px ' +
+            'default mobile layout viewport; the passed width/height will NOT apply. ' +
+            'Use isMobile: false for a precise viewport.',
+          )
+        }
+        // ArkWeb note: setUserAgentOverride is acked but ignored — UA cannot be changed via CDP.
         await session.send('Emulation.setDeviceMetricsOverride', {
           width: descriptor.viewport.width,
           height: descriptor.viewport.height,
