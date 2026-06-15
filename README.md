@@ -80,6 +80,23 @@ test('precise viewport', async ({ page, emulateDevice }) => {
 > **⚠️ `isMobile: true` does not produce a precise viewport on ArkWeb.**
 > When `Emulation.setDeviceMetricsOverride` is called with `mobile: true`, ArkWeb enables its mobile layout-viewport compatibility path and renders at the 980px default mobile layout viewport — the passed `width`/`height` are effectively ignored (`window.innerWidth` reads 980 regardless). `deviceScaleFactor` has no effect on this. Use `isMobile: false` when you need an exact pixel viewport. Note that `userAgent` is also not applied (`Emulation.setUserAgentOverride` is acked but ignored by ArkWeb); the browser UA cannot be changed via CDP.
 
+### `tap` fixture
+
+ArkWeb fully implements touch input via CDP `Input.dispatchTouchEvent`, but Playwright's `page.touchscreen.tap()` refuses to run unless the context was created with `hasTouch: true` — impossible in single-context reuse mode. The `tap` fixture exposes a CDP-backed tap that works regardless:
+
+```ts
+import { test, expect } from '@playwright/test'
+
+test('tap a button', async ({ page, tap }) => {
+  await page.goto('http://localhost:5173/')
+  const box = await page.locator('#submit').boundingBox()
+  await tap(box.x + box.width / 2, box.y + box.height / 2)
+  await expect(page.locator('#result')).toHaveText('Done')
+})
+```
+
+Coordinates are CSS pixels relative to the viewport (same as `touchscreen.tap`). Each call issues a `touchStart` + `touchEnd` pair, which also synthesises a `click` event on the targeted element — so it works for both touch handlers and click handlers.
+
 ## Limitations
 
 - **Chromium only.** firefox and webkit aren't available on HarmonyOS.
