@@ -16,6 +16,12 @@ function readEndpoint(): string {
 
 export const test = base.extend<{
   emulateDevice: (descriptor: DeviceDescriptor) => Promise<void>
+  // ArkWeb fully implements touch via CDP Input.dispatchTouchEvent, but
+  // Playwright's page.touchscreen.tap() refuses to run unless the context was
+  // created with hasTouch — impossible in single-context reuse mode. Expose a
+  // CDP-backed tap that works regardless. Coordinates are CSS pixels relative
+  // to the viewport, matching Playwright's touchscreen.tap semantics.
+  tap: (x: number, y: number) => Promise<void>
 }>({
   browser: [
     async ({}, use: (b: Browser) => Promise<void>) => {
@@ -186,6 +192,34 @@ export const test = base.extend<{
             userAgent: descriptor.userAgent,
           })
         }
+      } finally {
+        await session.detach()
+      }
+    })
+  },
+
+  tap: async ({ page }, use) => {
+    await use(async (x: number, y: number) => {
+      const session = await page.context().newCDPSession(page)
+      try {
+        // ArkWeb fully implements Input.dispatchTouchEvent (verified: touchstart
+        // touches=1 | touchend received). Playwright's touchscreen.tap() requires
+        // hasTouch at context creation, which is impossible in single-context reuse
+        // mode. This wrapper issues a press+release pair directly.
+        // TouchPoint.state isn't in Playwright's TS types but is part of the CDP
+        // spec and accepted by ArkWeb; cast to any to bypass the narrowed type.
+        await (session.send as any)('Input.dispatchTouchEvent', {
+          type: 'touchStart',
+          touchPoints: [{ x, y, id: 0, state: 'pressed' }],
+          modifiers: 0,
+          timeStamp: 0,
+        })
+        await (session.send as any)('Input.dispatchTouchEvent', {
+          type: 'touchEnd',
+          touchPoints: [{ x, y, id: 0, state: 'released' }],
+          modifiers: 0,
+          timeStamp: 0,
+        })
       } finally {
         await session.detach()
       }
