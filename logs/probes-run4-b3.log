@@ -1,0 +1,56 @@
+(node:54720) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[ohos-playwright] locating com.huawei.hmos.browser...
+[ohos-playwright] browser pid=51195
+[ohos-playwright] socket=webview_devtools_remote_51195
+[ohos-playwright] hdc fport tcp:43965 -> localabstract:webview_devtools_remote_51195
+[ohos-playwright] CDP ready: Chrome/132.0.6834.89
+[ohos-playwright] opened new tab (4 existing page(s))
+[ohos-playwright] wrote /data/storage/el2/base/tmp/ohos-playwright-cdp.json
+
+Running 18 tests using 1 worker
+
+(node:54862) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[PROBE2 a11y-snapshot] RESULT=error err=Cannot read properties of undefined (reading 'snapshot')
+  ✓   1 [chromium] › probes/a11y-selector.spec.ts:4:1 › accessibility: page.accessibility.snapshot (665ms)
+[PROBE2 role-button] RESULT text=Save
+[PROBE2 role-link] RESULT text=Link
+  ✓   2 [chromium] › probes/a11y-selector.spec.ts:24:1 › role=: get_by_role selector (595ms)
+[PROBE2 has-text] RESULT text=banana
+[PROBE2 has] RESULT text=target
+  ✓   3 [chromium] › probes/a11y-selector.spec.ts:42:1 › 复杂选择器: :has-text / :has (686ms)
+[PROBE2 locale] RESULT navigator.language=zh-CN date=2020/1/15
+  ✓   4 [chromium] › probes/emulation-extra.spec.ts:4:1 › locale: CDP Emulation.setLocaleOverride (675ms)
+[PROBE2 timezone] RESULT tz=Asia/Shanghai offset=-480 (Tokyo=-540)
+  ✓   5 [chromium] › probes/emulation-extra.spec.ts:18:1 › timezone: CDP Emulation.setTimezoneOverride (271ms)
+[PROBE2 reducedMotion] RESULT reduce-matches=true
+  ✓   6 [chromium] › probes/emulation-extra.spec.ts:32:1 › reducedMotion: page.emulateMedia (164ms)
+[PROBE2 filechooser] RESULT got=yes
+  ✓   7 [chromium] › probes/filechooser-cache.spec.ts:5:1 › fileChooser: page.waitForEvent(filechooser) (512ms)
+[PROBE2 cacheDisabled] RESULT command=ok
+  ✓   8 [chromium] › probes/filechooser-cache.spec.ts:25:1 › cacheDisabled: Network.setCacheDisabled (158ms)
+[REFINE locale] RESULT before=zh-CN after=zh-CN changed=false
+  ✓   9 [chromium] › probes/refine-extra.spec.ts:4:1 › locale 精细化：原始值 vs 设置后 (460ms)
+[REFINE timezone] RESULT before=Asia/Shanghai after=America/New_York changed=true
+  ✓  10 [chromium] › probes/refine-extra.spec.ts:20:1 › timezone 精细化：原始值 vs 设置后 (526ms)
+[REFINE reducedMotion] RESULT no-preference=true reduce=true
+  ✓  11 [chromium] › probes/refine-extra.spec.ts:36:1 › reducedMotion 精细化：reduce vs no-preference 对照 (196ms)
+[REFINE video] RESULT frame-preview=got 20 chars
+  ✓  12 [chromium] › probes/refine-extra.spec.ts:45:1 › video 精细化：screencast 换监听姿势 (2.1s)
+[REFINE touch] doc-root=ok
+[REFINE touch] RESULT log=touchstart touches=1 | touchend
+  ✓  13 [chromium] › probes/refine-extra.spec.ts:66:1 › touch 精细化：CDP dispatchTouchEvent 带可见监听 (1.1s)
+[PROBE2 storageState] RESULT=error err=browserContext.storageState: Cannot read properties of undefined (reading '_page')
+  ✓  14 [chromium] › probes/storage-state.spec.ts:5:1 › storageState: context.storageState() 序列化 (338ms)
+[PROBE2 touch-tap] RESULT=error err=touchscreen.tap: hasTouch must be enabled on the browser context before using the touchscreen.
+  ✓  15 [chromium] › probes/touch.spec.ts:4:1 › touch: page.tap 触发 touchstart/touchend (267ms)
+[PROBE2 touch-cdp] RESULT out=got:1
+  ✓  16 [chromium] › probes/touch.spec.ts:29:1 › touch: CDP Input.dispatchTouchEvent 直发 (1.1s)
+[PROBE2 video-screencast] RESULT frames=1 (>0 表示可录视频)
+  ✓  17 [chromium] › probes/video-har.spec.ts:4:1 › video: context 视频录制（connectOverCDP 下） (1.6s)
+[PROBE2 har-route] RESULT route-continue=ok (recordHar 需多 context，ohos-playwright 不支持)
+  ✓  18 [chromium] › probes/video-har.spec.ts:22:1 › har: context.recordHar（route 层抓包） (1.2s)
+[ohos-playwright] removed fport tcp:43965 localabstract:webview_devtools_remote_51195
+
+  18 passed (15.8s)

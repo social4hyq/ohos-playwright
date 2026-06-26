@@ -1,0 +1,88 @@
+(node:52187) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[ohos-playwright] locating com.huawei.hmos.browser...
+[ohos-playwright] browser pid=51195
+[ohos-playwright] socket=webview_devtools_remote_51195
+[ohos-playwright] hdc fport tcp:35891 -> localabstract:webview_devtools_remote_51195
+[ohos-playwright] CDP ready: Chrome/132.0.6834.89
+[ohos-playwright] opened new tab (1 existing page(s))
+[ohos-playwright] wrote /data/storage/el2/base/tmp/ohos-playwright-cdp.json
+
+Running 34 tests using 1 worker
+
+(node:52326) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+  ✓   1 [chromium] › probes/baseline.spec.ts:3:1 › baseline: goto data url + evaluate (292ms)
+  ✓   2 [chromium] › probes/baseline.spec.ts:8:1 › baseline: viewportSize non-null (62ms)
+[PROBE cdp-session] RESULT w=1643 h=937
+  ✓   3 [chromium] › probes/cdp.spec.ts:5:1 › cdp: newCDPSession + Page.getLayoutMetrics (625ms)
+[ohos-playwright] emulateDevice({ isMobile: true }): ArkWeb renders at the 980px default mobile layout viewport; the passed width/height will NOT apply. Use isMobile: false for a precise viewport.
+[PROBE emulateDevice] RESULT innerWidth=1643
+  ✓   4 [chromium] › probes/cdp.spec.ts:18:1 › emulateDevice: mobile viewport (155ms)
+[PROBE emulateMedia] RESULT dark-matches=true
+  ✓   5 [chromium] › probes/cdp.spec.ts:28:1 › emulateMedia: dark colorScheme (177ms)
+[PROBE dialog] RESULT dialogs=["alert:hi"]
+  ✓   6 [chromium] › probes/dialog.spec.ts:4:1 › dialog: alert accept (1.0s)
+[PROBE dialog-confirm] RESULT dialogs=["confirm"]
+  ✓   7 [chromium] › probes/dialog.spec.ts:13:1 › dialog: confirm + dismiss (961ms)
+[PROBE download] RESULT=ok suggested=x.txt elapsed=347ms
+  ✓   8 [chromium] › probes/download.spec.ts:4:1 › download: a[download] click (658ms)
+[PROBE console-event] RESULT logs=["log:hello-event","log:currentPageReady"]
+  ✓   9 [chromium] › probes/events.spec.ts:4:1 › events: console.log captured (735ms)
+[PROBE pageerror-event] RESULT errors=["boom"]
+  ✓  10 [chromium] › probes/events.spec.ts:12:1 › events: pageerror captured (1.1s)
+[PROBE frames] RESULT frames_count=2 mainFrame=data:text/html,<iframe src="data:text/html,<p>inner</p>"></iframe>
+  frame: url=data:text/html,<iframe src="data:text/html,<p>inner</p>"></iframe>
+  frame: url=data:text/html,<p>inner</p>
+  ✓  11 [chromium] › probes/frames.spec.ts:4:1 › frames: page.frames() + mainFrame (647ms)
+[PROBE frames-nested] RESULT=ok inner_text=inner
+  ✓  12 [chromium] › probes/frames.spec.ts:12:1 › frames: nested iframe content (995ms)
+[PROBE geolocation] RESULT=ok set-succeeded
+  ✓  13 [chromium] › probes/geolocation.spec.ts:4:1 › geolocation: set + grant (13ms)
+[PROBE fill] RESULT val=hello
+  ✓  14 [chromium] › probes/input.spec.ts:4:1 › input: locator.fill (653ms)
+[PROBE type] RESULT val=abc
+  ✓  15 [chromium] › probes/input.spec.ts:11:1 › input: locator.type (296ms)
+[PROBE keyboard] RESULT val=Ax
+  ✓  16 [chromium] › probes/input.spec.ts:18:1 › input: keyboard.press (747ms)
+[PROBE select] RESULT val=b
+  ✓  17 [chromium] › probes/input.spec.ts:27:1 › input: select option (626ms)
+[PROBE locator-text] RESULT val=text
+  ✓  18 [chromium] › probes/locator.spec.ts:4:1 › locator: waitFor + textContent (557ms)
+[PROBE locator-toHaveText] RESULT=ok
+  ✓  19 [chromium] › probes/locator.spec.ts:11:1 › locator: toHaveText expect (551ms)
+[PROBE expect-toHaveCount] RESULT=ok
+  ✓  20 [chromium] › probes/locator.spec.ts:17:1 › expect: toHaveCount (626ms)
+[PROBE expect-toHaveAttribute] RESULT=ok
+  ✓  21 [chromium] › probes/locator.spec.ts:23:1 › expect: toHaveAttribute (646ms)
+[PROBE newPage] RESULT=error elapsed=106ms err=browserContext.newPage: Cannot read properties of undefined (reading '_page')
+  ✓  22 [chromium] › probes/multi-context.spec.ts:5:1 › newPage: context.newPage() 行为 (209ms)
+[PROBE newContext] RESULT=error elapsed=0ms err=browser.newContext() is not supported in ArkWeb CDP mode (single context only). Tests share one context and one page — isolate with localStorage.clear() + page.reload(). See ohos-playwright README "Limitations" section.
+  ✓  23 [chromium] › probes/multi-context.spec.ts:18:1 › newContext: browser.newContext() 行为 (1ms)
+[PROBE route-register] RESULT=ok route-registered
+  ✓  24 [chromium] › probes/network.spec.ts:4:1 › route: fulfill a fake response (579ms)
+[PROBE route-abort] RESULT=ok route-registered
+  ✓  25 [chromium] › probes/network.spec.ts:15:1 › route: abort (132ms)
+[PROBE popup] RESULT=ok url=https://example.com
+  ✓  26 [chromium] › probes/popup.spec.ts:4:1 › popup: window.open + waitForEvent(page) (2.7s)
+[PROBE2 localStorage-http] RESULT val=v-from-http
+  ✓  27 [chromium] › probes/recheck.spec.ts:9:1 › localStorage: 真实 HTTP origin (552ms)
+[ohos-playwright] emulateDevice({ isMobile: true }): ArkWeb renders at the 980px default mobile layout viewport; the passed width/height will NOT apply. Use isMobile: false for a precise viewport.
+[PROBE2 emulateDevice] RESULT before={"w":1643,"h":937} after={"w":1643,"h":937}
+  ✓  28 [chromium] › probes/recheck.spec.ts:29:1 › emulateDevice: 是否真的改变了 viewport (809ms)
+[PROBE screenshot-page] RESULT bytes=20495
+  ✓  29 [chromium] › probes/screenshot.spec.ts:5:1 › screenshot: page.png (15.6s)
+[PROBE screenshot-jpeg] RESULT bytes=33866
+  ✓  30 [chromium] › probes/screenshot.spec.ts:12:1 › screenshot: page.jpeg (811ms)
+[PROBE screenshot-locator] RESULT bytes=492
+  ✓  31 [chromium] › probes/screenshot.spec.ts:18:1 › screenshot: locator (885ms)
+[PROBE localStorage] RESULT val=undefined
+  ✓  32 [chromium] › probes/storage.spec.ts:4:1 › storage: localStorage set/get (513ms)
+[PROBE sessionStorage] RESULT val=undefined
+  ✓  33 [chromium] › probes/storage.spec.ts:11:1 › storage: sessionStorage (227ms)
+[PROBE cookies] RESULT after-add count=149
+[PROBE cookies] RESULT after-clear count=0
+  ✓  34 [chromium] › probes/storage.spec.ts:18:1 › storage: cookies add/get/clear (126ms)
+[ohos-playwright] removed fport tcp:35891 localabstract:webview_devtools_remote_51195
+
+  34 passed (39.2s)

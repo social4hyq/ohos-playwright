@@ -1,0 +1,124 @@
+(node:55436) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[ohos-playwright] locating com.huawei.hmos.browser...
+[ohos-playwright] browser pid=51195
+[ohos-playwright] socket=webview_devtools_remote_51195
+[ohos-playwright] hdc fport tcp:41425 -> localabstract:webview_devtools_remote_51195
+[ohos-playwright] CDP ready: Chrome/132.0.6834.89
+[ohos-playwright] opened new tab (6 existing page(s))
+[ohos-playwright] wrote /data/storage/el2/base/tmp/ohos-playwright-cdp.json
+
+Running 52 tests using 1 worker
+
+(node:55549) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[PROBE a11y-cdp] RESULT nodeCount=11
+[PROBE a11y-cdp] RESULT hasButton=true hasHeading=true roles(sample)=RootWebArea,none,none,button,textbox,heading,StaticText,generic
+  ✓   1 [chromium] › probes/accessibility-cdp.spec.ts:4:1 › a11y-cdp: Accessibility.getFullAXTree 基本调用 (615ms)
+[PROBE a11y-cdp-filter] RESULT linkCount=0 names=[]
+  ✓   2 [chromium] › probes/accessibility-cdp.spec.ts:24:1 › a11y-cdp: 按 role 过滤节点 (591ms)
+[PROBE a11y-cdp-partial] RESULT={"error":"cdpSession.send: Protocol error (Accessibility.getPartialAXTree): Either nodeId, backendNodeId or objectId mus
+  ✓   3 [chromium] › probes/accessibility-cdp.spec.ts:41:1 › a11y-cdp: Accessibility.enable + getPartialAXTree (664ms)
+[PROBE context-route] RESULT source=context-mock (context-mock=ok)
+  ✓   4 [chromium] › probes/context-route.spec.ts:17:1 › context.route: 拦截并 fulfill (552ms)
+[PROBE context-route-priority] RESULT handler=page (page=ok,context=也记录)
+  ✓   5 [chromium] › probes/context-route.spec.ts:39:1 › context.route vs page.route: page 优先级更高 (349ms)
+[PROBE context-route-abort] RESULT result=aborted (aborted=ok)
+  ✓   6 [chromium] › probes/context-route.spec.ts:65:1 › context.route: abort 拦截 (372ms)
+[PROBE coverage-js] RESULT entryCount=1
+[PROBE coverage-js] RESULT=error err=Cannot read properties of undefined (reading 'length')
+  ✓   7 [chromium] › probes/coverage.spec.ts:4:1 › coverage: JS coverage startJSCoverage / stopJSCoverage (392ms)
+[PROBE coverage-css] RESULT entryCount=1
+[PROBE coverage-css] RESULT url=data:text/html,      <style>        .used { color: red }     rangeCount=1 textLen=65
+  ✓   8 [chromium] › probes/coverage.spec.ts:24:1 › coverage: CSS coverage startCSSCoverage / stopCSSCoverage (589ms)
+[PROBE coverage-js-multi] RESULT entryCount=1 (>=2=ok with resetOnNavigation=false)
+  ✓   9 [chromium] › probes/coverage.spec.ts:44:1 › coverage: JS coverage resetOnNavigation=false 跨页累积 (624ms)
+[PROBE exposeFunction] RESULT result=7 (7=ok)
+  ✓  10 [chromium] › probes/expose-function.spec.ts:4:1 › exposeFunction: 页面调用 Node 函数 (807ms)
+[PROBE exposeFunction-persist] RESULT v1=hello-world v2=hello-ohos
+  ✓  11 [chromium] › probes/expose-function.spec.ts:17:1 › exposeFunction: 跨 goto 保持注册 (1.3s)
+[PROBE exposeBinding] RESULT result=bound:test receivedCount=1 url=data:text/html,<span id=o></span>
+  ✓  12 [chromium] › probes/expose-function.spec.ts:30:1 › exposeBinding: 带 source（page/frame/element 信息） (583ms)
+[PROBE exposeBinding-handle] RESULT result=undefined
+  ✓  13 [chromium] › probes/expose-function.spec.ts:45:1 › exposeBinding: handle 模式（传 JSHandle） (411ms)
+[PROBE goForward] RESULT result=err:page.goForward: Timeout 5000ms exceeded. elapsed=5005ms
+  ✓  14 [chromium] › probes/go-forward.spec.ts:17:1 › goForward: 带超时兜底 (8.3s)
+[PROBE initScript] RESULT val=hello-from-init (hello-from-init=ok)
+  ✓  15 [chromium] › probes/init-script.spec.ts:4:1 › addInitScript: 在 goto 前注入全局变量 (216ms)
+[PROBE initScript-persist] RESULT p1=1 p2=1 (1,1=ok,ok)
+  ✓  16 [chromium] › probes/init-script.spec.ts:17:1 › addInitScript: 跨 goto 持久（第二次导航仍注入） (973ms)
+[PROBE initScript-str] RESULT val=str-init (str-init=ok)
+  ✓  17 [chromium] › probes/init-script.spec.ts:32:1 › addInitScript: 注入字符串形式 (535ms)
+[PROBE addScriptTag-content] RESULT val=script-tag (script-tag=ok)
+  ✓  18 [chromium] › probes/inject-tags.spec.ts:7:1 › addScriptTag: content 字符串注入 (764ms)
+[PROBE addScriptTag-module] RESULT val=module-ok (module-ok=ok)
+  ✓  19 [chromium] › probes/inject-tags.spec.ts:18:1 › addScriptTag: type=module (547ms)
+[PROBE addStyleTag-content] RESULT color=rgb(255, 0, 0) (rgb(255,0,0)=ok)
+  ✓  20 [chromium] › probes/inject-tags.spec.ts:33:1 › addStyleTag: content 字符串注入 (888ms)
+[PROBE addScriptTag-path] RESULT val=from-file (from-file=ok)
+  ✓  21 [chromium] › probes/inject-tags.spec.ts:44:1 › addScriptTag: path 本地文件 (693ms)
+[PROBE kbd-ctrl-a] RESULT val="" (empty=ok)
+  ✓  22 [chromium] › probes/keyboard-combos.spec.ts:4:1 › keyboard-combos: Ctrl+A 全选 (761ms)
+[PROBE kbd-shift-tab] RESULT focused=b (b=ok)
+  ✓  23 [chromium] › probes/keyboard-combos.spec.ts:13:1 › keyboard-combos: Shift+Tab 反向 focus (673ms)
+[PROBE kbd-ctrl-z] RESULT val="" (撤销后值，空或abc减少=ok)
+  ✓  24 [chromium] › probes/keyboard-combos.spec.ts:27:1 › keyboard-combos: Ctrl+Z 撤销 (828ms)
+[PROBE kbd-shift-arrow] RESULT val="def" (def=ok)
+  ✓  25 [chromium] › probes/keyboard-combos.spec.ts:37:1 › keyboard-combos: 修饰键 Shift+ArrowRight 选中字符 (802ms)
+[PROBE kbd-alt] RESULT=ok
+  ✓  26 [chromium] › probes/keyboard-combos.spec.ts:50:1 › keyboard-combos: Meta/Alt 键（仅测不报错） (650ms)
+[PROBE check] RESULT checked=true (true=ok)
+  ✓  27 [chromium] › probes/locator-check.spec.ts:9:1 › locator.check: 未选中 → 选中 (798ms)
+[PROBE uncheck] RESULT checked=false (false=ok)
+  ✓  28 [chromium] › probes/locator-check.spec.ts:20:1 › locator.uncheck: 已选中 → 未选中 (534ms)
+[PROBE check-idempotent] RESULT checked=true (true=ok)
+  ✓  29 [chromium] › probes/locator-check.spec.ts:31:1 › locator.check: 已选中时重复 check（幂等） (241ms)
+[PROBE check-disabled] RESULT=error err=locator.check: Timeout 3000ms exceeded. (error=expected)
+  ✓  30 [chromium] › probes/locator-check.spec.ts:42:1 › locator.check: disabled checkbox (3.2s)
+[PROBE setChecked] RESULT v1=true v2=false (true,false=ok)
+  ✓  31 [chromium] › probes/locator-check.spec.ts:52:1 › locator.setChecked: 统一 API (655ms)
+[PROBE mouse-move] RESULT events=""
+  ✓  32 [chromium] › probes/mouse-raw.spec.ts:17:1 › mouse-raw: mouse.move 触发 mousemove 事件 (719ms)
+[PROBE mouse-down-up] RESULT events=""
+  ✓  33 [chromium] › probes/mouse-raw.spec.ts:32:1 › mouse-raw: mouse.down + up 触发 click (711ms)
+[PROBE mouse-move-steps] RESULT mousemoveCount=0 (>=5=ok)
+  ✓  34 [chromium] › probes/mouse-raw.spec.ts:49:1 › mouse-raw: mouse.move 连续轨迹（steps） (651ms)
+[PROBE mouse-click] RESULT events=""
+  ✓  35 [chromium] › probes/mouse-raw.spec.ts:67:1 › mouse-raw: mouse.click（高层 API 完整路径） (578ms)
+[PROBE on-request] RESULT count=1 first=
+  ✓  36 [chromium] › probes/request-events.spec.ts:18:1 › request-events: on(request) 捕获 URL (463ms)
+[PROBE on-response] RESULT statuses=[200]
+  ✓  37 [chromium] › probes/request-events.spec.ts:31:1 › request-events: on(response) 捕获状态码 (379ms)
+[PROBE on-requestfinished] RESULT count=1
+  ✓  38 [chromium] › probes/request-events.spec.ts:44:1 › request-events: on(requestfinished) 请求完成事件 (483ms)
+[PROBE on-requestfailed] RESULT count=1 first=net::ERR_UNSAFE_PORT
+  ✓  39 [chromium] › probes/request-events.spec.ts:57:1 › request-events: on(requestfailed) 连接拒绝 (549ms)
+[PROBE scroll-wheel] RESULT before=0 after=300 delta=300
+  ✓  40 [chromium] › probes/scroll.spec.ts:9:1 › scroll: mouse.wheel 命令是否生效 (1.0s)
+[PROBE scroll-evaluate] RESULT scrollTop=200 (200=ok)
+  ✓  41 [chromium] › probes/scroll.spec.ts:25:1 › scroll: evaluate scrollTo 绕过 (563ms)
+[PROBE scroll-window] RESULT scrollY=500 (500=ok)
+  ✓  42 [chromium] › probes/scroll.spec.ts:33:1 › scroll: window.scrollTo page-level (503ms)
+[PROBE waitForRequest] RESULT result=ok:http://127.0.0.1:38689/probe
+  ✓  43 [chromium] › probes/wait-for-request.spec.ts:17:1 › waitForRequest: 捕获 goto 触发的请求 (220ms)
+[PROBE waitForResponse] RESULT result=ok:200
+  ✓  44 [chromium] › probes/wait-for-request.spec.ts:36:1 › waitForResponse: 捕获 goto 响应 (213ms)
+[PROBE waitForRequest-predicate] RESULT result=ok:GET
+  ✓  45 [chromium] › probes/wait-for-request.spec.ts:55:1 › waitForRequest: predicate 函数过滤 (206ms)
+[PROBE waitForURL-string] RESULT result=ok
+  ✓  46 [chromium] › probes/wait-for-url.spec.ts:17:1 › waitForURL: string 精确匹配 (154ms)
+[PROBE waitForURL-glob] RESULT result=ok
+  ✓  47 [chromium] › probes/wait-for-url.spec.ts:33:1 › waitForURL: glob 模式 (165ms)
+[PROBE waitForURL-regex] RESULT result=ok
+  ✓  48 [chromium] › probes/wait-for-url.spec.ts:52:1 › waitForURL: RegExp 模式 (218ms)
+[PROBE waitForURL-pushstate] RESULT result=ok url=detail
+  ✓  49 [chromium] › probes/wait-for-url.spec.ts:71:1 › waitForURL: JS 客户端导航（history.pushState） (302ms)
+[PROBE websocket-baseline] RESULT result=echo:hell� (echo:hello=ok)
+  ✓  50 [chromium] › probes/websocket.spec.ts:46:1 › websocket: 真实 WS 连接（基线，无拦截） (247ms)
+[PROBE websocket-route] RESULT result=intercepted:hello (intercepted:hello=ok)
+  ✓  51 [chromium] › probes/websocket.spec.ts:67:1 › websocket: page.routeWebSocket 拦截（Playwright >= 1.48） (359ms)
+[PROBE websocket-cdp-events] RESULT events=[]
+  ✓  52 [chromium] › probes/websocket.spec.ts:95:1 › websocket: CDP Network.webSocketCreated 事件 (466ms)
+[ohos-playwright] removed fport tcp:41425 localabstract:webview_devtools_remote_51195
+
+  52 passed (43.2s)

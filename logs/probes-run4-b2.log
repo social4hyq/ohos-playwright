@@ -1,0 +1,65 @@
+(node:53637) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[ohos-playwright] locating com.huawei.hmos.browser...
+[ohos-playwright] browser pid=51195
+[ohos-playwright] socket=webview_devtools_remote_51195
+[ohos-playwright] hdc fport tcp:46641 -> localabstract:webview_devtools_remote_51195
+[ohos-playwright] CDP ready: Chrome/132.0.6834.89
+[ohos-playwright] opened new tab (3 existing page(s))
+[ohos-playwright] wrote /data/storage/el2/base/tmp/ohos-playwright-cdp.json
+
+Running 17 tests using 1 worker
+
+(node:53775) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[PROBE baseURL-toHaveURL] RESULT=ok toHaveURL-passed
+[PROBE baseURL-toHaveURL] RESULT page.url()=http://127.0.0.1:38315/foo
+  ✓   1 [chromium] › probes/baseurl.spec.ts:5:1 › baseURL: page.goto(/path) 拼接 + toHaveURL 断言 (336ms)
+[PROBE clipboard] RESULT val=undefined
+  ✓   2 [chromium] › probes/clipboard.spec.ts:4:1 › clipboard: writeText + readText (225ms)
+[PROBE drag] RESULT out=dropped
+  ✓   3 [chromium] › probes/drag-mouse.spec.ts:4:1 › drag: locator.dragTo (914ms)
+  ✘   4 [chromium] › probes/drag-mouse.spec.ts:25:1 › mouse: hover 触发 :hover (30.1s)
+(node:54212) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[PROBE wheel] RESULT scrollTop=0 (>0 表示滚动生效)
+  ✓   5 [chromium] › probes/drag-mouse.spec.ts:44:1 › mouse: wheel 滚动 (955ms)
+[PROBE fileUpload] RESULT file-content=hello-upload
+  ✓   6 [chromium] › probes/file-upload.spec.ts:5:1 › fileUpload: setInputFiles + 输入读取 (1.2s)
+[PROBE hover-v2] RESULT hoverResult=err:locator.hover: Timeout 5000ms exceeded. elapsed=5005ms
+  ✓   7 [chromium] › probes/hover-v2.spec.ts:4:1 › hover-v2: locator.hover 带超时 (5.3s)
+[PROBE nav-goback] RESULT backResult=err:page.goBack: Timeout 5000ms exceeded. elapsed=5014ms
+  ✓   8 [chromium] › probes/navigation-v2.spec.ts:17:1 › navigation-v2: goBack 带超时兜底 (5.4s)
+[PROBE nav-reload-v2] RESULT after-reload= (空=状态丢失)
+  ✓   9 [chromium] › probes/navigation-v2.spec.ts:37:1 › navigation-v2: reload (665ms)
+[PROBE extraHeaders] RESULT body=sent
+  ✓  10 [chromium] › probes/network-advanced.spec.ts:5:1 › setExtraHTTPHeaders: 自定义头到达服务器 (241ms)
+[PROBE offline] RESULT when-offline=unreachable: page.origGoto: net::ERR_INTERNET_DISCONNECTED at http://127.0.0.1:32891/
+[PROBE offline] RESULT when-online=reachable
+  ✓  11 [chromium] › probes/network-advanced.spec.ts:23:1 › offline: context.setOffline(true) (535ms)
+[PROBE pdf] RESULT bytes=15434 header=%PDF
+  ✓  12 [chromium] › probes/pdf.spec.ts:5:1 › pdf: page.pdf 生成 (283ms)
+[PROBE tracing] RESULT exists=true size=10187
+  ✓  13 [chromium] › probes/tracing.spec.ts:5:1 › tracing: start/stop/tracePath (955ms)
+[PROBE setViewportSize] RESULT before={"w":1643,"h":937} after={"w":500,"h":400}
+  ✓  14 [chromium] › probes/viewport.spec.ts:4:1 › setViewportSize: page.setViewportSize 改变 viewport (966ms)
+[PROBE cdp-viewport] RESULT after-cdp={"w":500,"h":400}
+  ✓  15 [chromium] › probes/viewport.spec.ts:17:1 › CDP Emulation.setDeviceMetricsOverride 对比 (597ms)
+[PROBE webworker] RESULT workers_count=1
+[PROBE webworker] RESULT output=42 (预期42)
+  ✓  16 [chromium] › probes/workers.spec.ts:4:1 › worker: page.workers() 列表 (916ms)
+[PROBE serviceWorker] RESULT reg-result=Cannot read properties of undefined (reading 'register')
+[PROBE serviceWorker] RESULT sw-event=timeout
+  ✓  17 [chromium] › probes/workers.spec.ts:17:1 › serviceWorker: 注册 + context 等待 (3.1s)
+[ohos-playwright] removed fport tcp:46641 localabstract:webview_devtools_remote_51195
+
+
+  1) [chromium] › probes/drag-mouse.spec.ts:25:1 › mouse: hover 触发 :hover ──────────────────────────
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error Context: test-results/drag-mouse-mouse-hover-触发-hover-chromium/error-context.md
+
+  1 failed
+    [chromium] › probes/drag-mouse.spec.ts:25:1 › mouse: hover 触发 :hover ───────────────────────────
+  16 passed (57.1s)

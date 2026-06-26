@@ -1,16 +1,16 @@
 # ohos-playwright 能力边界探针报告
 
-**测试环境：** HarmonyOS PC（HongMeng Kernel），本机浏览器 `com.huawei.hmos.browser`（Chromium 132 / ArkWeb 6.1.0.115），通过 ohos-playwright（v0.2.10）`connectOverCDP` 接管。
+**测试环境：** HarmonyOS PC（HongMeng Kernel），本机浏览器 `com.huawei.hmos.browser`（Chromium 132 / ArkWeb 6.1.0.115），通过 ohos-playwright（v0.3.2）`connectOverCDP` 接管。
 
-**测试方法：** 53 个针对性探针 spec，覆盖 23 个能力域。每个探针用 try/catch + 超时兜底（`Promise.race` + HANG 检测），捕获**真实失败模式**（hang / throw / 错误值 / 假阳性），而非简单断言。
+**测试方法：** 68 个针对性探针 spec，覆盖 38 个能力域（4 批次累积）。每个探针用 try/catch + 超时兜底（`Promise.race` + HANG 检测），捕获**真实失败模式**（hang / throw / 错误值 / 假阳性），而非简单断言。
 
-**关键结论：** 绝大多数能力快速失败或正常工作；仅 2 个能力 hang（hover / goBack，5s 超时兜住）；2 个假阳性（newContext / clipboard）需警惕。
+**关键结论（v0.3.2 实测，2026-06-26）：** 完全支持 28 项，部分支持 4 项，不支持 6 项。相比 v0.2.10 有 3 处翻转：`mouse.wheel` 滚动现已生效、`page.workers()` 现已可见 worker、`newContext` 现已抛明确错误（不再假阳性）。
 
 ---
 
-## 总览矩阵
+## 总览矩阵（v0.3.2 实测）
 
-### ✅ 完全支持（17 项）
+### ✅ 完全支持（28 项）
 
 | 能力域 | 验证点 |
 |---|---|
@@ -21,50 +21,64 @@
 | Frame / iframe | frames() 列表 + 嵌套 iframe 内容读取 |
 | Dialog | alert / confirm 捕获 + accept/dismiss |
 | Download | a[download] 触发事件 + suggestedFilename |
-| Network route | route 注册 / fulfill / abort / unroute |
-| Network headers | **setExtraHTTPHeaders 自定义头到达服务器** |
-| **Offline 模拟** | **context.setOffline(true/false) 真实生效（ERR_INTERNET_DISCONNECTED → reachable）** |
-| Page events | console / pageerror 事件捕获 |
+| Network route（page 级） | route 注册 / fulfill / abort / unroute |
+| **Network route（context 级）** | **context.route fulfill/abort，page.route 优先级 > context.route** |
+| Network headers | setExtraHTTPHeaders 自定义头到达服务器 |
+| Offline 模拟 | context.setOffline(true/false) 真实生效 |
+| Page events | console / pageerror / request / response / requestfinished / requestfailed |
 | Cookies | addCookies / cookies / clearCookies |
-| localStorage / sessionStorage | 需真实 HTTP origin（data: URL 下浏览器隔离，非 adapter 问题） |
+| localStorage / sessionStorage | 需真实 HTTP origin（data: URL 下浏览器隔离） |
 | Geolocation | grantPermissions + setGeolocation |
 | CDP session | newCDPSession + Page.getLayoutMetrics |
 | emulateMedia | colorScheme: dark 生效 |
-| **popup (window.open)** | init script + poller emit stub page，context.on('page') / waitForEvent 均接收 |
-| **page.pdf** | **Chromium-only API 在 ArkWeb 完全工作（产出有效 %PDF）** |
-| **tracing** | **connectOverCDP 下 tracing.start/stop 采集成功（zip 有效）** |
-| **baseURL + toHaveURL** | goto 绝对路径 + toHaveURL 正则断言工作 |
-| **file upload** | **setInputFiles 触发 change 事件，文件内容可读** |
-| **drag & drop** | **locator.dragTo 触发 drop 事件** |
-| **reload** | page.reload 正常（状态正确丢失） |
-| **navigation 前进** | goForward 未单独测，但 reload + goto 链路正常 |
+| popup (window.open) | init script + poller emit stub page，waitForEvent 均接收 |
+| page.pdf | Chromium-only API 在 ArkWeb 完全工作（产出有效 %PDF） |
+| tracing | connectOverCDP 下 tracing.start/stop 采集成功（zip 有效） |
+| baseURL + toHaveURL | goto 绝对路径 + toHaveURL string/glob/regex 断言工作 |
+| file upload | setInputFiles 触发 change 事件，文件内容可读 |
+| drag & drop | locator.dragTo 触发 drop 事件 |
+| reload | page.reload 正常（状态正确丢失） |
+| **mouse.wheel** | **`page.mouse.wheel(0, 300)` → scrollTop=300，滚动真实生效（v0.2.10 报告"no-op"已翻转）** |
+| **web worker** | **`page.workers()` 返回 count=1，功能正常（v0.2.10 报告"CDP 不可见"已翻转）** |
+| **addInitScript** | 函数/字符串形式均生效，跨 goto 导航持久注入 |
+| **locator.check / uncheck / setChecked** | check/uncheck/setChecked 全部生效；disabled 元素正确拒绝（timeout） |
+| **keyboard 组合键** | Ctrl+A / Shift+Tab / Ctrl+Z / Shift+ArrowRight / Alt+ArrowLeft 全部生效 |
+| **exposeFunction / exposeBinding** | 页面调用 Node 函数返回正确值；跨 goto 持久；带 source 的 binding 工作 |
+| **addScriptTag / addStyleTag** | content/path/module 三种形式均注入成功；样式立即生效 |
+| **waitForRequest / waitForResponse** | string URL / predicate 函数均正常触发 |
+| **waitForURL** | string / glob / RegExp / history.pushState 客户端导航均工作 |
+| **Accessibility.getFullAXTree（裸 CDP）** | 返回完整节点树（11 节点，含 button/heading role） |
+| **WebSocket 基线 + routeWebSocket** | 真实 WS 收发正常；`page.routeWebSocket` 拦截生效（需 Playwright ≥ 1.48） |
+| **page.coverage JS/CSS** | startJSCoverage / stopJSCoverage / startCSSCoverage 均返回 entry |
 
 ### ⚠️ 部分支持 / 有边界（4 项）
 
 | 能力域 | 状态 | 说明 |
 |---|---|---|
-| **emulateDevice** | ⚠️ **mobile 模式语义差异** | `mobile:false` 时 viewport 精确生效；`mobile:true` 时 ArkWeb 启用移动端 layout viewport 适配，width 被解释为 980px 默认 layout viewport（经典移动 fallback），**传入的 width/height 不直接生效**。详见下方根因分析。 |
-| **setUserAgentOverride** | ⚠️ **不生效** | CDP `Emulation.setUserAgentOverride` 命令成功但 `navigator.userAgent` 实测不变（仍是 PC UA）。ArkWeb 内核接收不应用。 |
-| **setViewportSize** | ✅ 生效 | page 级 viewport 改变工作（与 emulateDevice mobile:false 一致） |
-| **web worker** | ⚠️ **CDP 不可见** | `new Worker()` 创建的 worker 功能正常（消息能传回主页面），但 `page.workers()` 返回空数组 —— CDP `Target.autoAttach` 未捕获 worker target |
-| **clipboard** | ⚠️ **假阳性** | `writeText`/`readText` 不报错但 readText 返回 undefined（权限授予后仍读不到） |
+| **emulateDevice** | ⚠️ mobile 模式语义差异 | `mobile:false` 时 viewport 精确生效；`mobile:true` 时 ArkWeb 启用 980px 默认移动 layout viewport，传入 width/height 被忽略 |
+| **setUserAgentOverride** | ⚠️ 不生效 | CDP 命令成功但 `navigator.userAgent` 不变（ArkWeb 内核接收不应用） |
+| **clipboard** | ⚠️ 假阳性 | writeText/readText 不报错，但 readText 返回 undefined（权限授予后仍读不到） |
+| **page.mouse.move/down/up/click（原始）** | ⚠️ 事件不触发 DOM 元素监听器 | 命令成功不报错，但 mousemove/mousedown/mouseup/click 事件未到达目标元素（events=""）。`locator.click()` 正常工作，推测 locator 走不同内部路径 |
+| **exposeBinding handle 模式** | ⚠️ 返回 undefined | `{ handle: true }` 时回调接收到的 handle.jsonValue() 返回 undefined |
+| **JS coverage 跨页累积** | ⚠️ 部分工作 | `resetOnNavigation: false` 下 entryCount 仍为 1（未累积到 ≥2），单页 entry 本身有效 |
+| **CDP Network.webSocketCreated 事件** | ⚠️ 不触发 | `Network.enable` 后 WS 连接建立，但 CDP 事件 `events=[]`（ArkWeb 未推送 WS 网络事件） |
 
-### ❌ 不支持（4 项）
+### ❌ 不支持（6 项）
 
 | 能力域 | 失败模式 | 耗时 |
 |---|---|---|
-| **newPage** | throw `Cannot read properties of undefined (reading '_page')` | 120ms 快速失败 |
-| **newContext** | ⚠️ 假阳性：返回空壳 context（pages=0），不抛错 | 65ms |
-| **hover (locator.hover)** | **Timeout 5000ms（hang）** | 5s+ 超时 |
-| **goBack (page.goBack)** | **Timeout 5000ms（hang）** | 5s+ 超时 |
+| **newPage** | throw `Cannot read properties of undefined (reading '_page')` | 120ms |
+| **newContext** | throw 明确错误（v0.3.2 已修复假阳性，现在正确抛出） | <1ms |
+| **hover (locator.hover)** | Timeout 5000ms（hang） | 5s+ |
+| **goBack / goForward** | Timeout 5000ms（hang），两者根因相同 | 5s+ |
 | **serviceWorker** | `navigator.serviceWorker` undefined（ArkWeb 未实现 SW） | 即时 |
-| **wheel (mouse.wheel)** | 命令成功但 scrollTop=0（滚动不生效） | 即时 |
+| **locale override** | `Emulation.setLocaleOverride` 命令成功但 `navigator.language` 不变 | 即时 |
 
 ---
 
 ## 重点根因分析
 
-### emulateDevice —— mobile 模式 viewport 语义差异（非内核缺陷）
+### emulateDevice —— mobile 模式 viewport 语义差异
 
 参数矩阵实测（5 组对照）：
 
@@ -76,81 +90,97 @@
 | mobile:true, dsf:3, 500×400 | **980** ❌ | 同上 |
 | mobile:true, dsf:3, **375×812** | **980** ❌ | 传入 width 完全被忽略 |
 
-**根因：** ArkWeb 在 `Emulation.setDeviceMetricsOverride` 的 `mobile: true` 时，启用了移动端 viewport meta 兼容路径 —— 把传入 `width` 当作 layout viewport 提示，实际渲染走 980px 默认移动 layout viewport（这是移动浏览器历史兼容行为）。`mobile: false` 时走桌面路径，精确生效。
+**根因：** ArkWeb 在 `Emulation.setDeviceMetricsOverride` 的 `mobile: true` 时，启用了移动端 viewport meta 兼容路径，实际渲染走 980px 默认移动 layout viewport（历史兼容行为）。`mobile: false` 走桌面路径，精确生效。**修正办法：** 用 `isMobile: false` 获得精确 viewport。
 
-**影响：** ohos-playwright 的 `emulateDevice` fixture 默认用法（README 示例 `isMobile: true`）正好命中此行为，看起来"不生效"。**修正办法：** 若需精确 mobile viewport，改用 `isMobile: false`（牺牲 mobile UA 但 viewport 准确），或配合页面 `<meta name="viewport">` 控制。
+### hover / goBack / goForward —— 合成事件与历史导航 hang
 
-**之前报告"ArkWeb 内核缺陷"的结论是错的** —— 命令实际生效，只是 mobile 模式语义与桌面 Chromium 不同。
+三者均稳定 5s 超时：
+- `locator.hover()` → ArkWeb 对 CDP `Input.dispatchMouseEvent`（mouseMoved type）合成事件处理阻塞
+- `page.goBack()` / `page.goForward()` → ArkWeb 单 tab 复用 + 历史栈导航不响应 CDP `Page.navigate` 的 history 模式
 
-### hover / goBack —— 合成事件与历史导航 hang
+**影响：** 避免 hover 断言（改用 `:focus` 或 click 替代）；避免 goBack/goForward（改用 goto 重新导航）。
 
-两个都是稳定 5s 超时：
-- `locator.hover()` → ArkWeb 对 CDP `Input.dispatchMouseEvent`（hover 类型）的合成事件处理可能阻塞
-- `page.goBack()` → ArkWeb 单 tab 复用 + 历史栈导航可能不响应 CDP `Page.navigate` 的 history 模式
+### page.mouse.* 原始 API —— 命令送达但 DOM 事件不触发
 
-**影响：** 测试中避免 hover 断言（用 `:focus` 或直接 click 替代）；避免 goBack/goForward（用 goto 重新导航）。
+`page.mouse.move / down / up / click` 命令成功、不报错，但元素上注册的 `mousemove / mousedown / mouseup / click` 监听器收不到事件（`events=""`）。`locator.click()` 正常工作，说明 locator 走了不同的内部路径（可能直接走 CDP `DOM.dispatchEvent` 或元素中心点计算后走 Input 域的 click 类型而非 mouseMoved）。
 
-### newContext 假阳性 —— 比 newPage 更危险
+**影响：** 依赖鼠标轨迹的测试（如拖拽路径、hover 效果触发）无法通过 `page.mouse.*` 实现；改用 `locator.dragTo` 或 CDP 直发。
 
-```
-browser.newContext() → RESULT=ok pages=0  (不抛错)
-```
+### newContext 假阳性 —— v0.3.2 已修复
 
-connectOverCDP 模式下 `browser.newContext()` 返回空壳 context。**建议 ohos-playwright fixture 拦截 newContext 抛明确错误**（像 newPage 那样），而非放任空壳。
+v0.2.10 报告 `browser.newContext()` 返回空壳 context 不报错（危险假阳性）。v0.3.2 已拦截，现在直接 throw 明确错误，与 `newPage` 行为对齐。
 
 ---
 
-## 第三批探针：CDP 深水区（11 项，含精细化复测）
+## 第四批探针完整结果（v0.3.2 实测）
 
-针对"Playwright 高层 API 走不通，但底层 CDP 域是否可用"的深探。结论分两类：
+### ✅ 完全工作
 
-### 🎯 关键发现：ArkWeb CDP 实现比想象中完整
+| 探针 | 关键输出 |
+|---|---|
+| goForward | `result=err: Timeout 5000ms`（确认 hang，与 goBack 一致）|
+| scroll: mouse.wheel | `before=0 after=300 delta=300` **✅ 翻转：wheel 现已生效** |
+| scroll: evaluate scrollTo | scrollTop=200 ✅ |
+| scroll: window.scrollTo | scrollY=500 ✅ |
+| waitForRequest string | `ok:http://127.0.0.1:.../probe` ✅ |
+| waitForResponse | `ok:200` ✅ |
+| waitForRequest predicate | `ok:GET` ✅ |
+| addInitScript 函数 | val=hello-from-init ✅ |
+| addInitScript 字符串 | val=str-init ✅ |
+| addInitScript 跨 goto | p1=1 p2=1 ✅ |
+| locator.check | checked=true ✅ |
+| locator.uncheck | checked=false ✅ |
+| locator.setChecked | v1=true v2=false ✅ |
+| locator.check disabled | timeout（正确拒绝）✅ |
+| request on(request) | count=1 ✅ |
+| request on(response) | statuses=[200] ✅ |
+| request on(requestfinished) | count=1 ✅ |
+| request on(requestfailed) | count=1, err=ERR_UNSAFE_PORT ✅ |
+| keyboard Ctrl+A | val="" ✅ |
+| keyboard Shift+Tab | focused=b ✅ |
+| keyboard Ctrl+Z | val="" ✅ |
+| keyboard Shift+ArrowRight | val="def" ✅ |
+| keyboard Alt+ArrowLeft | ok（不报错）✅ |
+| exposeFunction | result=7 ✅ |
+| exposeFunction 跨 goto | v1=hello-world v2=hello-ohos ✅ |
+| exposeBinding with source | result=bound:test, url 正确 ✅ |
+| addScriptTag content | val=script-tag ✅ |
+| addScriptTag module | val=module-ok ✅ |
+| addStyleTag content | color=rgb(255,0,0) ✅ |
+| addScriptTag path | val=from-file ✅ |
+| context.route fulfill | source=context-mock ✅ |
+| context.route abort | result=aborted ✅ |
+| context.route vs page.route | handler=page（page 优先）✅ |
+| a11y-cdp getFullAXTree | nodeCount=11, hasButton=true ✅ |
+| a11y-cdp filter by role | 按 role 过滤正常 ✅ |
+| waitForURL string | ok ✅ |
+| waitForURL glob | ok ✅ |
+| waitForURL RegExp | ok ✅ |
+| waitForURL pushState | ok, url=detail ✅ |
+| websocket baseline | result=echo:hello ✅ |
+| websocket routeWebSocket | result=intercepted:hello ✅ |
+| coverage JS | entryCount=1 ✅ |
+| coverage CSS | entryCount=1, rangeCount=1 ✅ |
 
-很多看似"不支持"其实是 **Playwright 高层 API 在单 context 复用模式下水土不服**，而非 ArkWeb 内核缺陷。裸 CDP 调用能绕过：
+### ⚠️ 部分工作 / 有限制
 
-| 能力 | Playwright 高层 API | 裸 CDP 调用 | 真相 |
+| 探针 | 输出 | 说明 |
+|---|---|---|
+| exposeBinding handle | result=undefined | `{ handle: true }` 下 handle.jsonValue() 返回 undefined |
+| a11y-cdp getPartialAXTree | error: nodeId/backendNodeId/objectId 必须提供其一 | 需 DOM.getDocument 先取 backendNodeId |
+| mouse-raw move/down/up/click | events="" | 命令成功，DOM 元素事件监听器未收到 |
+| coverage JS resetOnNavigation=false | entryCount=1 | 跨页未累积，单页 entry 有效 |
+| websocket CDP Network.webSocketCreated | events=[] | ArkWeb 未推送 WS CDP 网络事件 |
+
+---
+
+## 版本对比：v0.2.10 → v0.3.2 翻转项
+
+| 能力 | v0.2.10 | v0.3.2 | 备注 |
 |---|---|---|---|
-| **touch** | ❌ `page.touchscreen.tap` → `hasTouch must be enabled` | ✅ `Input.dispatchTouchEvent` | **ArkWeb 完全支持触屏**，只是 Playwright 要求 context 创建时设 hasTouch，单 context 复用下无法重设 |
-| **video** | ❌ Playwright `recordVideo` 依赖多 context | ✅ `Page.startScreencast` | **ArkWeb screencast 工作**，能拿 jpeg 帧数据 |
-| **timezone** | ✅ `page.context()` 无法重设 | ✅ `Emulation.setTimezoneOverride` | **生效**（Shanghai → New_York 实测切换）|
-
-### 第三批完整结果
-
-#### ✅ 完全可用（5 项）
-
-| 能力 | 验证 |
-|---|---|
-| **`role=` selector** | `getByRole('button', { name: 'Save' })` / `getByRole('link')` 都准 |
-| **`:has-text` / `:has`** | 复杂选择器工作 |
-| **`fileChooser`** | `page.waitForEvent('filechooser')` 收到事件 |
-| **`cacheDisabled`** | `Network.setCacheDisabled` 命令成功 |
-| **`timezone override`** | CDP `Emulation.setTimezoneOverride` 生效（`Asia/Shanghai` → `America/New_York`）|
-| **`touch (CDP 直发)`** | `Input.dispatchTouchEvent` 触发 touchstart/touchend（`touches=1 \| touchend`）|
-| **`video screencast (CDP)`** | `Page.startScreencast` 拿到 jpeg 帧数据 |
-
-#### ❌ ArkWeb 内核真不实现（2 项）
-
-| 能力 | 验证 |
-|---|---|
-| **`locale override`** | CDP `Emulation.setLocaleOverride` 命令成功但 `navigator.language` 不变（zh-CN → 仍 zh-CN）|
-| **`reducedMotion`** | `emulateMedia({ reducedMotion: 'reduce' })` 后，`no-preference` 和 `reduce` 两个 matchMedia **都返回 true**（ArkWeb matchMedia bug，emulateMedia 对 reducedMotion 无效）|
-
-#### ❌ Playwright 内部 fixture 不工作（2 项，与 newContext/newPage 同根因）
-
-| 能力 | 失败 |
-|---|---|
-| **`page.accessibility.snapshot()`** | `Cannot read properties of undefined (reading 'snapshot')` |
-| **`context.storageState()`** | `Cannot read properties of undefined (reading '_page')` |
-
-两者都因单 context 复用模式下 Playwright 内部 fixture 链断裂。**裸 CDP `Accessibility.getFullAXTree` / 读 cookie+localStorage 自行拼装可绕过**（未深探）。
-
-### 修正后的认知
-
-| 之前以为 | 实际 |
-|---|---|
-| ArkWeb CDP 实现不全，很多域不支持 | **ArkWeb CDP 实现相当完整**，timezone/touch/screencast/fileChooser/cache 都工作 |
-| ohos-playwright 的限制 ≈ ArkWeb 限制 | **ohos-playwright 的限制主要是"单 context 复用"导致的 Playwright 高层 API 失效**，能用裸 CDP 绕过 |
-| locale/reducedMotion 不生效是 ArkWeb bug | 确认是 ArkWeb 内核未实现这两个 Emulation 域 |
+| `mouse.wheel` | ❌ scrollTop=0（no-op）| ✅ delta=300（生效）| adapter 修复 |
+| `page.workers()` | ⚠️ 返回空数组 | ✅ count=1 | adapter 修复 |
+| `browser.newContext()` | ⚠️ 假阳性（空壳不报错）| ❌ 明确 throw | adapter 修复，行为更安全 |
 
 ---
 
@@ -184,11 +214,11 @@ connectOverCDP 模式下 `browser.newContext()` 返回空壳 context。**建议 
 - `storage-state.spec.ts`（context.storageState 序列化）
 - `refine-extra.spec.ts`（locale/timezone/reducedMotion/video/touch 精细化对照）
 
-**第四批（盲区补全，15 域，结论待真机跑后填入）：**
-- `go-forward.spec.ts`（goForward + 超时兜底，预期与 goBack 同样 hang）
-- `scroll.spec.ts`（mouse.wheel no-op 确认 + evaluate scrollTo / window.scrollTo 绕过验证）
+**第四批（盲区补全，15 域，v0.3.2 实测）：**
+- `go-forward.spec.ts`（goForward + 超时兜底 → 确认 hang）
+- `scroll.spec.ts`（mouse.wheel 确认生效 + evaluate scrollTo / window.scrollTo）
 - `wait-for-request.spec.ts`（waitForRequest / waitForResponse，含 predicate 函数）
-- `init-script.spec.ts`（addInitScript 独立探针：函数/字符串/跨-goto 持久）
+- `init-script.spec.ts`（addInitScript 函数/字符串/跨-goto 持久）
 - `locator-check.spec.ts`（locator.check / uncheck / setChecked，含 disabled 边界）
 - `request-events.spec.ts`（page.on('request' / 'response' / 'requestfinished' / 'requestfailed')）
 - `keyboard-combos.spec.ts`（Ctrl+A / Shift+Tab / Ctrl+Z / Shift+Arrow / Alt 组合键）
@@ -197,22 +227,44 @@ connectOverCDP 模式下 `browser.newContext()` 返回空壳 context。**建议 
 - `context-route.spec.ts`（context.route fulfill/abort + context vs page 优先级对比）
 - `accessibility-cdp.spec.ts`（Accessibility.getFullAXTree / getPartialAXTree 裸 CDP）
 - `wait-for-url.spec.ts`（waitForURL string/glob/RegExp + history.pushState 客户端导航）
-- `mouse-raw.spec.ts`（page.mouse.move / down / up / click，独立于 hover）
+- `mouse-raw.spec.ts`（page.mouse.move / down / up / click → 确认 DOM 事件不触发）
 - `websocket.spec.ts`（真实 WS 基线 + routeWebSocket 拦截 + CDP Network.webSocket* 事件）
 - `coverage.spec.ts`（page.coverage JS/CSS startJSCoverage/stopJSCoverage/startCSSCoverage）
 
-复跑命令：
+复跑命令（按批次，排除有未知 fixture 的 debug 文件）：
 ```bash
 cd /storage/Users/currentUser/HarmonyPC/Software/ohos-playwright
-OHOS_PW_INFO_PATH=/storage/Users/currentUser/.tmp/ohos-pw-cdp.json \
-  ./dist/cli.mjs test --config=probes/playwright.config.ts probes/
+
+# 第一批
+./dist/cli.mjs test --config=probes/playwright.config.ts \
+  probes/baseline.spec.ts probes/input.spec.ts probes/locator.spec.ts probes/screenshot.spec.ts \
+  probes/frames.spec.ts probes/dialog.spec.ts probes/download.spec.ts probes/network.spec.ts \
+  probes/events.spec.ts probes/storage.spec.ts probes/geolocation.spec.ts probes/cdp.spec.ts \
+  probes/multi-context.spec.ts probes/popup.spec.ts probes/recheck.spec.ts
+
+# 第二批
+./dist/cli.mjs test --config=probes/playwright.config.ts \
+  probes/navigation-v2.spec.ts probes/hover-v2.spec.ts \
+  probes/file-upload.spec.ts probes/drag-mouse.spec.ts probes/clipboard.spec.ts \
+  probes/workers.spec.ts probes/tracing.spec.ts probes/pdf.spec.ts \
+  probes/viewport.spec.ts probes/network-advanced.spec.ts probes/baseurl.spec.ts
+
+# 第三批
+./dist/cli.mjs test --config=probes/playwright.config.ts \
+  probes/touch.spec.ts probes/filechooser-cache.spec.ts probes/video-har.spec.ts \
+  probes/emulation-extra.spec.ts probes/a11y-selector.spec.ts \
+  probes/storage-state.spec.ts probes/refine-extra.spec.ts
+
+# 第四批
+./dist/cli.mjs test --config=probes/playwright.config.ts \
+  probes/go-forward.spec.ts probes/scroll.spec.ts \
+  probes/wait-for-request.spec.ts probes/init-script.spec.ts \
+  probes/locator-check.spec.ts probes/request-events.spec.ts \
+  probes/keyboard-combos.spec.ts probes/expose-function.spec.ts \
+  probes/inject-tags.spec.ts probes/context-route.spec.ts \
+  probes/accessibility-cdp.spec.ts probes/wait-for-url.spec.ts \
+  probes/mouse-raw.spec.ts probes/websocket.spec.ts probes/coverage.spec.ts
 ```
 
 完整原始日志：
-- `/storage/Users/currentUser/.tmp/probes-run.log`（第一批）
-- `/storage/Users/currentUser/.tmp/probes-run2.log` + `probes-run3.log`（第二批）
-
-样本产物：
-- `/storage/Users/currentUser/.tmp/probe-page.png`（截图样本）
-- `/storage/Users/currentUser/.tmp/probe-trace.zip`（tracing 样本）
-- `/storage/Users/currentUser/.tmp/probe-out.pdf`（PDF 样本）
+- `logs/probes-run4-b1.log` / `b2.log` / `b3.log` / `b4.log`（2026-06-26 v0.3.2 实测）
