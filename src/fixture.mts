@@ -11,6 +11,17 @@ export interface DeviceDescriptor {
 }
 
 function readInfo(): CdpInfo {
+  const cdpUrl = process.env.OHOS_PW_CDP_URL
+  if (cdpUrl) {
+    return {
+      port: 0,
+      pid: 0,
+      socket: '',
+      endpoint: cdpUrl,
+      openedNewTab: false,
+      launchUrl: process.env.OHOS_PW_LAUNCH_URL ?? 'about:blank',
+    }
+  }
   return JSON.parse(readFileSync(INFO_PATH, 'utf8')) as CdpInfo
 }
 
