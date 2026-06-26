@@ -69,9 +69,9 @@ The following Playwright APIs have been validated on ArkWeb / HarmonyOS 6.1 (Chr
 | WebSocket | `page.routeWebSocket()` (requires Playwright ≥ 1.48) — intercepts WebSocket connections |
 | Accessibility (CDP) | `newCDPSession` + `Accessibility.getFullAXTree` — returns the full AX node tree |
 | Navigation history | `page.goBack()`, `page.goForward()` — implemented via `history.back/forward()` + CDP polling; returns when the history index changes |
-| Hover events | `locator.hover()` — fires `mouseover` / `mouseenter` event listeners; CSS `:hover` pseudo-class is **not** activated (adapter uses JS dispatch, not a real pointer move) |
+| Hover events | `locator.hover()` — fires `mouseover` / `mouseenter` event listeners **and** activates the CSS `:hover` pseudo-class via the real `Input.dispatchMouseEvent` path. Falls back to JS-only dispatch (DOM events without `:hover`) if Playwright's `boundingBox()` hangs for more than 5 s. |
 | Locale (partial) | `emulateLocale(tag)` fixture — rewrites `navigator.language` / `navigator.languages` via `addInitScript`; does not affect HTTP `Accept-Language` or browser UI locale |
-| User-Agent (partial) | `emulateDevice({ userAgent })` — overrides `navigator.userAgent` for page scripts; call before `page.goto()` for the override to take effect. HTTP `User-Agent` request headers are not changed. |
+| User-Agent | `emulateDevice({ userAgent })` — overrides both `navigator.userAgent` and the outgoing HTTP `User-Agent` header; call before `page.goto()` for the override to take effect. (`context.setExtraHTTPHeaders({ 'User-Agent': ... })` does **not** override UA — ArkWeb preserves the browser default there.) |
 | Service Workers | `navigator.serviceWorker.register()` — works on HTTPS pages; `navigator.serviceWorker` is `undefined` on non-secure origins (`data:`, `about:blank`) as in all browsers |
 | Clipboard | `navigator.clipboard.writeText()` / `readText()` — works on HTTPS pages after `context.grantPermissions(['clipboard-read', 'clipboard-write'])`; unavailable on non-secure origins |
 
@@ -99,7 +99,7 @@ test('precise viewport', async ({ page, emulateDevice }) => {
 > **⚠️ `isMobile: true` does not produce a precise viewport on ArkWeb.**
 > When `Emulation.setDeviceMetricsOverride` is called with `mobile: true`, ArkWeb enables its mobile layout-viewport compatibility path and renders at the 980px default mobile layout viewport — the passed `width`/`height` are effectively ignored (`window.innerWidth` reads 980 regardless). `deviceScaleFactor` has no effect on this. Use `isMobile: false` when you need an exact pixel viewport.
 >
-> **`userAgent` override is JS-layer only.** Call `await emulateDevice({ userAgent: '...' })` before `page.goto(url)` — `navigator.userAgent` on the destination page will reflect the override. The HTTP `User-Agent` request header is not changed (ArkWeb does not honour CDP UA overrides for outgoing headers).
+> **`userAgent` override applies to both JS and HTTP layers.** Call `await emulateDevice({ userAgent: '...' })` before `page.goto(url)` — `navigator.userAgent` on the destination page will reflect the override, and the outgoing HTTP `User-Agent` header is rewritten as well. Use `emulateDevice` rather than `context.setExtraHTTPHeaders({ 'User-Agent': ... })` — the latter does not override UA on ArkWeb.
 
 ### `tap` fixture
 
