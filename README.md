@@ -70,6 +70,7 @@ The following Playwright APIs have been validated on ArkWeb / HarmonyOS 6.1 (Chr
 | Accessibility (CDP) | `newCDPSession` + `Accessibility.getFullAXTree` — returns the full AX node tree |
 | Navigation history | `page.goBack()`, `page.goForward()` — implemented via `history.back/forward()` + CDP polling; returns when the history index changes |
 | Hover events | `locator.hover()` — fires `mouseover` / `mouseenter` event listeners; CSS `:hover` pseudo-class is **not** activated (adapter uses JS dispatch, not a real pointer move) |
+| Locale (partial) | `emulateLocale(tag)` fixture — rewrites `navigator.language` / `navigator.languages` via `addInitScript`; does not affect HTTP `Accept-Language` or browser UI locale |
 
 ### `emulateDevice` fixture
 
@@ -120,9 +121,9 @@ Coordinates are CSS pixels relative to the viewport (same as `touchscreen.tap`).
 - **`page.mouse.move()` / `page.mouse.down()` / `page.mouse.up()` do not trigger DOM element listeners** — the commands succeed without error, but `mousemove` / `mousedown` / `mouseup` handlers on target elements receive no events. Use `locator.click()` / `locator.dragTo()` instead; those go through a different internal path and work correctly. The adapter exposes `mouseMove` / `mouseDown` / `mouseUp` fixtures as a JS-dispatch fallback, but these only work for pages whose listeners contain no closure references and have a single `addEventListener` call per element — not reliable for typical web applications.
 - **`locator.hover()` does not activate CSS `:hover`** — the adapter's hover override dispatches `mouseover` / `mouseenter` via JavaScript, so event listeners fire but the `:hover` pseudo-class is not set (no real pointer position). Use `:focus`-driven styles or check `mouseover` event receipt rather than CSS state.
 - **Service Workers unavailable** — `navigator.serviceWorker` is `undefined` on ArkWeb; PWA / SW-based tests are not possible.
-- **Clipboard is a false positive** — `navigator.clipboard.writeText/readText` do not throw but `readText` returns `undefined`. Don't assert on clipboard contents.
+- **Clipboard is unavailable** — `navigator.clipboard` is `undefined` on ArkWeb; clipboard read/write is not possible. Don't assert on clipboard contents.
 - **`emulateDevice({ isMobile: true })` does not apply the viewport** — see the note in the `emulateDevice` fixture section above.
-- **`Emulation.setLocaleOverride` is ignored** — `navigator.language` stays unchanged regardless of the locale passed. Locale-sensitive formatting tests are not possible via CDP.
+- **`Emulation.setLocaleOverride` is ignored** — the CDP command is acked but has no effect. Use the `emulateLocale` fixture instead; it rewrites `navigator.language` / `navigator.languages` via `addInitScript` (JS-layer only — HTTP `Accept-Language` and browser UI locale are unaffected).
 - **`exposeBinding` handle mode returns `undefined`** — when `{ handle: true }` is passed, the JSHandle's `.jsonValue()` resolves to `undefined`. Use `exposeFunction` or a plain `exposeBinding` (without `handle`) instead.
 - **`process.platform` reads `'linux'`** during the run — we patch it because Playwright's hostPlatform detection only branches on linux/darwin/win32 and falls through to `<unknown>` on openharmony. For real platform checks use `process.env.OHOS_PW_HOST`.
 
@@ -137,6 +138,34 @@ Coordinates are CSS pixels relative to the viewport (same as `touchscreen.tap`).
 | `OHOS_PW_INFO_PATH` | `<tmpdir>/ohos-playwright-cdp.json` |
 | `OHOS_PW_UI_HOST` | `0.0.0.0` — used when `--ui` is passed without `--ui-host` on an OHOS device |
 | `OHOS_PW_UI_PORT` | `8765` — used when `--ui` is passed without `--ui-port` on an OHOS device |
+| `OHOS_PW_CDP_URL` | unset — when set, overrides the hdc-derived CDP endpoint entirely (e.g. `http://192.168.1.10:9222`) — used for LAN Chrome A/B comparison runs |
+
+### LAN Chrome A/B comparison
+
+`OHOS_PW_CDP_URL` lets you point the probe runner at an arbitrary CDP endpoint — useful for confirming whether a behaviour is an ArkWeb-specific gap or a general Chromium/CDP constraint.
+
+**Windows Chrome setup** (PowerShell / cmd):
+
+```
+chrome.exe --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 ^
+  --user-data-dir=C:\cdp-profile --remote-allow-origins=* about:blank
+```
+
+> Binding to the LAN IP directly (e.g. `--remote-debugging-address=192.168.1.10`) is more reliable than `0.0.0.0` with Chrome ≥ M111. SSH tunnel fallback: `ssh -L 9222:127.0.0.1:9222 <windows-host>` then use `http://127.0.0.1:9222`.
+
+**Running the Chrome leg** — must be from a **non-OpenHarmony host** so the adapter loader does not apply ArkWeb-specific fixture overrides:
+
+```bash
+OHOS_PW_CDP_URL=http://192.168.1.10:9222 npx playwright test probes/ab-baseline.spec.ts
+```
+
+**ArkWeb leg** (from the HarmonyPC host, as usual):
+
+```bash
+./dist/cli.mjs test --config=probes/playwright.config.ts probes/ab-baseline.spec.ts
+```
+
+Compare the `[PROBE ab-baseline]` log lines between the two runs to isolate ArkWeb-specific behaviour.
 
 ### `--ui` and `--debug` on an OHOS device
 

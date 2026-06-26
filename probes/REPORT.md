@@ -4,7 +4,7 @@
 
 **测试方法：** 68 个针对性探针 spec，覆盖 38 个能力域（4 批次累积）。每个探针用 try/catch + 超时兜底（`Promise.race` + HANG 检测），捕获**真实失败模式**（hang / throw / 错误值 / 假阳性），而非简单断言。
 
-**关键结论（v0.3.2 实测，2026-06-26，limitation fix 更新）：** 完全支持 30 项，部分支持 5 项，不支持 4 项。相比初始报告新增 2 项支持：`page.goBack/goForward`（CDP 轮询方案修复）、`locator.hover()`（JS dispatch 方案修复，但 CSS :hover 伪类不激活）。`page.mouse.move/down/up` 仍为已知限制。
+**关键结论（v0.3.2 实测，2026-06-26，limitation fix 更新）：** 完全支持 30 项，部分支持 6 项，不支持 3 项。相比初始报告新增 3 项支持：`page.goBack/goForward`（CDP 轮询方案修复）、`locator.hover()`（JS dispatch 方案修复，但 CSS :hover 伪类不激活）、`emulateLocale` fixture（addInitScript 兜底改写 navigator.language/languages）。`page.mouse.move/down/up` 仍为已知限制。
 
 ---
 
@@ -58,21 +58,26 @@
 |---|---|---|
 | **emulateDevice** | ⚠️ mobile 模式语义差异 | `mobile:false` 时 viewport 精确生效；`mobile:true` 时 ArkWeb 启用 980px 默认移动 layout viewport，传入 width/height 被忽略 |
 | **setUserAgentOverride** | ⚠️ 不生效 | CDP 命令成功但 `navigator.userAgent` 不变（ArkWeb 内核接收不应用） |
-| **clipboard** | ⚠️ 假阳性 | writeText/readText 不报错，但 readText 返回 undefined（权限授予后仍读不到） |
+| **clipboard** | ⚠️ 不可用 | `navigator.clipboard` 为 `undefined`（writeText/readText 调用直接 throw；权限授予无效） |
 | **page.mouse.move/down/up/click（原始）** | ⚠️ 事件不触发 DOM 元素监听器 | 命令成功不报错，但 mousemove/mousedown/mouseup/click 事件未到达目标元素（events=""）。`locator.click()` 正常工作，推测 locator 走不同内部路径 |
 | **locator.hover()** | ⚠️ mouseover/mouseenter 有效，CSS :hover 无效 | JS dispatch 方案修复了 hang，事件监听器可触达；但 JS 合成事件不设置真实指针位置，`:hover` 伪类不激活 |
 | **exposeBinding handle 模式** | ⚠️ 返回 undefined | `{ handle: true }` 时回调接收到的 handle.jsonValue() 返回 undefined |
 | **JS coverage 跨页累积** | ⚠️ 部分工作 | `resetOnNavigation: false` 下 entryCount 仍为 1（未累积到 ≥2），单页 entry 本身有效 |
 | **CDP Network.webSocketCreated 事件** | ⚠️ 不触发 | `Network.enable` 后 WS 连接建立，但 CDP 事件 `events=[]`（ArkWeb 未推送 WS 网络事件） |
 
-### ❌ 不支持（6 项）
+### ⚠️ 部分支持（新增项）
+
+| 能力域 | 状态 | 说明 |
+|---|---|---|
+| **emulateLocale** | ⚠️ JS 层有效，HTTP/UI 无效 | `emulateLocale(tag)` fixture 通过 `addInitScript` 改写 `navigator.language` / `navigator.languages`（PASS）；`Emulation.setLocaleOverride` CDP 命令被 ArkWeb 忽略；HTTP `Accept-Language` 和浏览器 UI 语言不受影响 |
+
+### ❌ 不支持（3 项）
 
 | 能力域 | 失败模式 | 耗时 |
 |---|---|---|
 | **newPage** | throw `Cannot read properties of undefined (reading '_page')` | 120ms |
 | **newContext** | throw 明确错误（v0.3.2 已修复假阳性，现在正确抛出） | <1ms |
 | **serviceWorker** | `navigator.serviceWorker` undefined（ArkWeb 未实现 SW） | 即时 |
-| **locale override** | `Emulation.setLocaleOverride` 命令成功但 `navigator.language` 不变 | 即时 |
 
 ---
 
@@ -192,6 +197,45 @@ v0.2.10 报告 `browser.newContext()` 返回空壳 context 不报错（危险假
 
 ---
 
+## Limitations 可行性审计矩阵（调用链追踪，2026-06-26）
+
+**方法：** 逐项追踪 playwright-core 内部调用链（`node_modules/playwright-core/lib/`）定位 CDP 命令发送点，判定 ArkWeb 拒绝是在哪一层发生、能否被 adapter 层（`base.extend()`）截获。
+
+| # | Limitation | playwright-core 调用点 | 判定 | 实施 |
+|---|---|---|---|---|
+| 1 | `newContext` / `newPage` 抛错 | `crBrowser.ts:111` → `Target.createBrowserContext` | **ArkWeb 根本性缺陷**（`Target` domain 无 createBrowserContext / createTarget）| 仅文档化 |
+| 2 | `setUserAgentOverride` 被忽略 | `crPage.ts:997` `Emulation.setUserAgentOverride` | **边界情况**（ArkWeb 可能认 `Network.setUserAgentOverride`，但要换得改 core）| 加入 A/B 验证清单 |
+| 3 | `page.mouse.*` 不触发 DOM 事件 | `crInput.ts:106-157` `Input.dispatchMouseEvent` | **ArkWeb 根本性缺陷**；JS-synth fallback 已交付并文档化 | 仅文档化 |
+| 4 | `locator.hover()` 不激活 CSS `:hover` | `dom.ts:537` → 同上 crInput 路径 | **ArkWeb 根本性缺陷**（CSS `:hover` 必须真实指针位置）| 仅文档化 |
+| 5 | Service Workers undefined | `crBrowser.ts:189-235`（等 `Target.attached` 类型 `service_worker`）| **ArkWeb 根本性缺陷**（渲染端未注册 SW）| 仅文档化 |
+| 6 | Clipboard unavailable | 渲染端 `navigator.clipboard`（`crBrowser.ts:448` 授权后）| **ArkWeb 根本性缺陷**（`navigator.clipboard` 为 undefined，权限授予无效）| 仅文档化 |
+| 7 | `isMobile:true` viewport 锁 980px | `crPage.ts:920-959` `Emulation.setDeviceMetricsOverride` | **ArkWeb 根本性缺陷**（移动 layout viewport 硬编码 980px）| 仅文档化 |
+| 8 | `setLocaleOverride` 被忽略 | `crPage.ts:1145` `Emulation.setLocaleOverride` | **ArkWeb 缺陷，adapter 部分可修** | **已修复（emulateLocale fixture）** |
+| 9 | `exposeBinding { handle: true }` undefined | `server/page.ts:1033-1046` `PageBinding.dispatch` 忽略 handle | **必须改 playwright-core**（binding dispatch 是 server 内部，adapter 拦不住）| 文档化 + 待后续计划 |
+| 10 | `process.platform === 'linux'` 兜底 | `crPage.ts:940-944`、`registry/index.ts` | **干净修法需改 core**；Node 级 patch 是务实折中 | 仅文档化（patch 已在位）|
+
+**汇总：** 10 项中，7 项 ArkWeb 根本性缺陷（任何层都无法补），2 项必须改 playwright-core（#9、#10），1 项 adapter 已修（#8）。
+
+---
+
+## 跨引擎 A/B baseline（ArkWeb vs 局域网 Chrome）
+
+**工具：** `probes/ab-baseline.spec.ts`，通过 `OHOS_PW_CDP_URL` 环境变量切换目标引擎。Chrome 腿从非 OpenHarmony 宿主执行（loader 不挂 fixture override，等价于 stock playwright）。
+
+**ArkWeb 腿实测（2026-06-26，Chromium 132 / ArkWeb 6.1.0.117）：**
+
+| 探针 | ArkWeb 结果 | Chrome 结果（预期）| 判定 |
+|---|---|---|---|
+| `navigator.userAgent` | `"Mozilla/5.0 (PC; OpenHarmony 6.1; ...) ArkWeb/6.1.0.117 ..."` | 标准 Chrome UA | ArkWeb 标识为 ArkWeb，UA 内容不同 |
+| `navigator.language` | `"zh-CN"` | 随系统 locale | 均返回有效 locale 字符串（ArkWeb 正常）|
+| `serviceWorker` | `false`（未定义）| `true` | ✅ 证实 ArkWeb 根本性缺陷（SW 未实现）|
+| `clipboard.readText` | `throw: Cannot read properties of undefined (reading 'readText')` | `typeof string`（授权后）| ✅ 证实 navigator.clipboard 在 ArkWeb 为 undefined |
+| `Input.dispatchMouseEvent` DOM 事件 | `events=""`（无事件）| `events="mousemove mousedown"`（有事件）| ✅ 证实 ArkWeb Input domain 未接 DOM 事件管线 |
+
+*Chrome 腿待在局域网 Windows Chrome 可用后补充实测数据。ArkWeb 腿已记录在 `logs/ab-arkweb.log`。*
+
+---
+
 ## 探针源码
 
 所有探针 spec 位于 `/storage/Users/currentUser/HarmonyPC/Software/ohos-playwright/probes/`：
@@ -238,6 +282,10 @@ v0.2.10 报告 `browser.newContext()` 返回空壳 context 不报错（危险假
 - `mouse-raw.spec.ts`（page.mouse.move / down / up / click → 确认 DOM 事件不触发）
 - `websocket.spec.ts`（真实 WS 基线 + routeWebSocket 拦截 + CDP Network.webSocket* 事件）
 - `coverage.spec.ts`（page.coverage JS/CSS startJSCoverage/stopJSCoverage/startCSSCoverage）
+
+**第五批（limitations audit + A/B 对比验证，2026-06-26）：**
+- `ab-baseline.spec.ts`（跨引擎 A/B baseline：userAgent / language / serviceWorker / clipboard / mouse DOM 事件；两条腿通过 `OHOS_PW_CDP_URL` 切换）
+- `locale.spec.ts`（emulateLocale fixture：addInitScript 改写 navigator.language / languages；PASS on ArkWeb）
 
 复跑命令（按批次，排除有未知 fixture 的 debug 文件）：
 ```bash
