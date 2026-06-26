@@ -7,6 +7,13 @@
 // domain 上认这条命令，可解释为：adapter 层 fixture 可以拦截 crPage 的 UA 设置调用，
 // 改走 Network domain；否则就是 ArkWeb 根本不接 UA override。
 //
+// ⚠️ 2026-06-27 复审更正：第三个 test（HTTP request header）用 page.route 拦截，但
+// route 拦截发生在 playwright network stack 早期，UA override（CDP 命令）的应用时机
+// 晚于拦截点，导致 `route.request().headers().user-agent` 读到的是覆盖前的值。
+// 此探针据此得出「ArkWeb 不改出站 UA」的结论是误测。准确的 HTTP UA header 验证
+// 请用 probes/ua-header-http.spec.ts（真实 echo server，2026-06-27 实测 Emulation
+// 路径在 ArkWeb 上 matches=true）。
+//
 // 两条腿：
 //   ArkWeb：./dist/cli.mjs test --config=probes/playwright.config.ts probes/ua-override.spec.ts
 //   Edge：  OHOS_PW_CDP_URL=http://192.168.3.60:9222 ./dist/cli.mjs test \

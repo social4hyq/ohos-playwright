@@ -209,20 +209,38 @@ export const test = base.extend<{
       return null
     }
 
-    // Override locator().hover(): Input.dispatchMouseEvent(mouseMoved) can hang in ArkWeb.
-    // Replace with JS MouseEvent dispatch which ArkWeb processes synchronously.
-    // Note: JS-dispatched events don't set the real pointer position, so CSS :hover
-    // pseudo-class is NOT activated — only mouseover/mouseenter event listeners fire.
+    // Override locator().hover() to bypass Playwright's internal visibility check
+    // (which can hang on ArkWeb), but still go through the real Input.dispatchMouseEvent
+    // path so the pointer position is set and CSS :hover activates. The earlier
+    // JS-dispatch workaround was disproved by the 2026-06-27 reaudit — ab-hover-css
+    // shows the native path delivers both DOM events and :hover activation.
     const savedLocator = (page as unknown as Record<string, unknown>)['locator'] as typeof page.locator
     const origLocator = page.locator.bind(page)
     ;(page as any).locator = (...args: Parameters<typeof page.locator>) => {
       const loc = origLocator(...args)
       ;(loc as any).hover = async (_options?: Parameters<typeof loc.hover>[0]) => {
-        await loc.evaluate((el: Element) => {
-          el.scrollIntoView({ block: 'center' })
-          el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false, cancelable: true }))
-          el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }))
-        })
+        // Try the real Input.dispatchMouseEvent path first (activates :hover).
+        // Some pages (e.g. ones with MutationObservers that re-enter layout) can
+        // make Playwright's evaluate/boundingBox hang on ArkWeb; fall back to a
+        // JS-only dispatch with a tight timeout so hover() at least returns and
+        // DOM listeners fire.
+        const viaRealMouse = await Promise.race([
+          (async () => {
+            const box = await loc.boundingBox()
+            if (!box) return false
+            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+            return true
+          })(),
+          new Promise<false>(r => setTimeout(() => r(false), 5000)),
+        ])
+        if (!viaRealMouse) {
+          await Promise.race([
+            loc.evaluate((el: Element) => {
+              el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }))
+            }),
+            new Promise(r => setTimeout(r, 2000)),
+          ]).catch(() => {})
+        }
       }
       return loc
     }

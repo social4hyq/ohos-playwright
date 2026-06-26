@@ -8,6 +8,23 @@
 
 ---
 
+## 2026-06-27 复审更新（Limitations 重审）
+
+新增 4 个跨引擎 A/B 探针（`ua-header-http` / `ab-mouse` / `ab-hover-css` / `ab-new-context`），连接 ArkWeb 132 + Edge 149 (Windows LAN) 双腿对照。**4 项原判定被推翻或细化**，详见 `docs/superpowers/reports/2026-06-27-limitations-reaudit.md`：
+
+| # | 原判定（2026-06-26） | 复审实证（2026-06-27） | 处置 |
+|---|---|---|---|
+| L1 newContext | ArkWeb 根本性，抛错 | `browser.newContext()` 实际成功（pages=0），仅 `ctx.newPage()` 抛 `_page` 错 | README 已更正；fixture 拦截保留（避免误用） |
+| L2 HTTP UA | 不可改，ArkWeb 根本性 | `Emulation.setUserAgentOverride` 实测**改了** HTTP UA header（旧结论基于 `page.route` 拦截，是误测——拦截发生在 network stack 早期，UA override 还未应用）| README 已更正 |
+| L3 page.mouse.\* | 不触发 DOM 事件（窄边界） | ArkWeb 132 上 `mousemove/mousedown/mouseup/click` **全部触发**；与 Edge 149 一致 | README 已更正（窄边界描述移除） |
+| L4 :hover 伪类 | 根本性，JS dispatch 副作用 | fixture 已重写为 `boundingBox + page.mouse.move` 走真实 CDP Input 路径；`:hover` 现在**激活=true**；boundingBox hang 时 fallback JS dispatch | README 已更正；fixture.mts 已更新 |
+| L5 exposeBinding handle | 需 vendored fork | playwright 1.60 公开 API 已无 `{ handle: true }` 选项（`client/page.ts:360` 签名只有 name + callback）；Edge 上同样返回 undefined | 详见 `docs/superpowers/reports/2026-06-26-exposebinding-handle-fork-eval.md` |
+| L6 process.platform | 已有折中 | 维持；新增 `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-arm64` env 作双保险（注释说明 env 单独不够——20+ 处直读 process.platform）| register.mts 已更新 |
+
+**下表与下文保留 2026-06-26 原始判定作为历史记录。最新状态以上表和 README 为准。**
+
+---
+
 ## 总览矩阵（v0.3.2 实测）
 
 ### ✅ 完全支持（28 项）
