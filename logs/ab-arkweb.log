@@ -1,0 +1,27 @@
+(node:29223) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[ohos-playwright] locating com.huawei.hmos.browser...
+[ohos-playwright] browser pid=54786
+[ohos-playwright] socket=webview_devtools_remote_54786
+[ohos-playwright] hdc fport tcp:43047 -> localabstract:webview_devtools_remote_54786
+[ohos-playwright] CDP ready: Chrome/132.0.6834.89
+[ohos-playwright] opened new tab (11 existing page(s))
+[ohos-playwright] wrote /data/storage/el2/base/tmp/ohos-playwright-cdp.json
+
+Running 5 tests using 1 worker
+
+(node:29355) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[PROBE ab-baseline] ua="Mozilla/5.0 (PC; OpenHarmony 6.1; Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36  ArkWeb/6.1.0.117 HuaweiBrowser/6.1.5.305"
+  ✓  1 [chromium] › probes/ab-baseline.spec.ts:9:1 › ab-baseline: navigator.userAgent reachable (669ms)
+[PROBE ab-baseline] language="zh-CN"
+  ✓  2 [chromium] › probes/ab-baseline.spec.ts:16:1 › ab-baseline: navigator.language (232ms)
+[PROBE ab-baseline] serviceWorker=false
+  ✓  3 [chromium] › probes/ab-baseline.spec.ts:23:1 › ab-baseline: serviceWorker present? (216ms)
+[PROBE ab-baseline] clipboard.readText typeof=throw:Cannot read properties of undefined (reading 'readText')
+  ✓  4 [chromium] › probes/ab-baseline.spec.ts:29:1 › ab-baseline: clipboard.readText returns string? (190ms)
+[PROBE ab-baseline] mouse-dom-events="" (ArkWeb expects "")
+  ✓  5 [chromium] › probes/ab-baseline.spec.ts:42:1 › ab-baseline: Input.dispatchMouseEvent reaches DOM listeners? (756ms)
+[ohos-playwright] removed fport tcp:43047 localabstract:webview_devtools_remote_54786
+
+  5 passed (5.8s)
