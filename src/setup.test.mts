@@ -98,6 +98,87 @@ function parseFetchDeviceState(raw: string): { ps: string; unix: string } {
 
 const B = 'com.huawei.hmos.browser'
 
+function countCdpPages(listJson: string): number {
+  try {
+    const targets = JSON.parse(listJson) as { type: string }[]
+    return targets.filter((t) => t.type === 'page').length
+  } catch { return 0 }
+}
+
+describe('countCdpPages()', () => {
+  it('counts page-type targets', () => {
+    const list = JSON.stringify([
+      { type: 'page', id: '1' },
+      { type: 'page', id: '2' },
+      { type: 'background_page', id: '3' },
+      { type: 'service_worker', id: '4' },
+    ])
+    assert.equal(countCdpPages(list), 2)
+  })
+
+  it('returns 0 for empty list', () => {
+    assert.equal(countCdpPages('[]'), 0)
+  })
+
+  it('returns 0 for invalid JSON', () => {
+    assert.equal(countCdpPages('not-json'), 0)
+    assert.equal(countCdpPages(''), 0)
+  })
+
+  it('returns 0 when no page-type targets', () => {
+    assert.equal(countCdpPages(JSON.stringify([{ type: 'service_worker' }])), 0)
+  })
+})
+
+function pickTestPage(
+  pages: { url: () => string }[],
+  openedNewTab: boolean,
+  launchUrl = 'about:blank',
+): { url: () => string } | undefined {
+  if (openedNewTab) {
+    return [...pages].reverse().find((p) => p.url() === launchUrl) ?? pages[pages.length - 1]
+  }
+  return pages.find((p) => p.url().startsWith('http://localhost')) ?? pages[0]
+}
+
+describe('fixture page selection (unit)', () => {
+  const p = (url: string) => ({ url: () => url })
+
+  it('openedNewTab=false: prefers localhost page', () => {
+    const pages = [p('https://example.com'), p('http://localhost:5173/')]
+    assert.equal(pickTestPage(pages, false)?.url(), 'http://localhost:5173/')
+  })
+
+  it('openedNewTab=false: falls back to pages[0] when no localhost', () => {
+    const pages = [p('https://example.com'), p('https://other.com')]
+    assert.equal(pickTestPage(pages, false)?.url(), 'https://example.com')
+  })
+
+  it('openedNewTab=true: picks about:blank tab', () => {
+    const pages = [p('https://example.com'), p('https://news.com'), p('about:blank')]
+    assert.equal(pickTestPage(pages, true)?.url(), 'about:blank')
+  })
+
+  it('openedNewTab=true: picks the LAST about:blank when multiple exist', () => {
+    const pages = [p('about:blank'), p('https://example.com'), p('about:blank')]
+    // reverse().find() returns the last one (index 2)
+    assert.equal(pickTestPage(pages, true)?.url(), 'about:blank')
+    // verify it's the last one, not the first
+    const result = pickTestPage(pages, true)
+    assert.equal(result, pages[2])
+  })
+
+  it('openedNewTab=true: falls back to last page when no launchUrl match', () => {
+    const pages = [p('https://example.com'), p('https://news.com')]
+    assert.equal(pickTestPage(pages, true)?.url(), 'https://news.com')
+  })
+
+  it('openedNewTab=true: respects custom launchUrl', () => {
+    const pages = [p('https://example.com'), p('http://localhost:8080/'), p('about:blank')]
+    assert.equal(pickTestPage(pages, true, 'http://localhost:8080/')?.url(), 'http://localhost:8080/')
+  })
+})
+
 describe('fetchDeviceState() separator parsing', () => {
   it('splits ps and unix at OHOS_SEP_<pid> marker', () => {
     const raw = '1 init\n34306 ' + B + '\nOHOS_SEP_9999\nsocket-data\n'

@@ -11,4 +11,6 @@ export interface CdpInfo {
   pid: number
   socket: string
   endpoint: string
+  openedNewTab: boolean
+  launchUrl: string
 }

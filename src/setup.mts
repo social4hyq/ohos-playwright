@@ -123,9 +123,9 @@ function setupForward(port: number, socketName: string): void {
 
 interface CdpProbeResult { ok: boolean; err?: string; body?: string }
 
-function probeCdp(port: number): Promise<CdpProbeResult> {
+function cdpGet(port: number, path: string): Promise<CdpProbeResult> {
   return new Promise((res) => {
-    const req = http.get(`http://127.0.0.1:${port}/json/version`, (r) => {
+    const req = http.get(`http://127.0.0.1:${port}${path}`, (r) => {
       let b = ''
       r.on('data', (c: string) => (b += c))
       r.on('end', () => res({ ok: r.statusCode === 200, body: b }))
@@ -133,6 +133,15 @@ function probeCdp(port: number): Promise<CdpProbeResult> {
     req.on('error', (e: NodeJS.ErrnoException) => res({ ok: false, err: e.code }))
     req.setTimeout(2000, () => { req.destroy(); res({ ok: false, err: 'TIMEOUT' }) })
   })
+}
+
+function probeCdp(port: number): Promise<CdpProbeResult> { return cdpGet(port, '/json/version') }
+
+export function countCdpPages(listJson: string): number {
+  try {
+    const targets = JSON.parse(listJson) as { type: string }[]
+    return targets.filter((t) => t.type === 'page').length
+  } catch { return 0 }
 }
 
 const IP_PORT_RE = /^(\d{1,3}\.){3}\d{1,3}:\d+$/
@@ -271,6 +280,7 @@ export default async function globalSetup(): Promise<void> {
 
   // Batch ps + /proc/net/unix into a single hdc call.
   let pid = findBrowserPid()
+  const browserWasRunning = !!pid
 
   if (!pid) {
     console.log('[ohos-playwright] browser not running, launching...')
@@ -302,7 +312,27 @@ export default async function globalSetup(): Promise<void> {
   }
   console.log(`[ohos-playwright] CDP ready: ${info.Browser}`)
 
+  // If browser was already running with user tabs, open a fresh tab so tests
+  // don't disturb the user's browsing session.
+  let openedNewTab = false
+  if (browserWasRunning) {
+    const listBefore = await cdpGet(port, '/json/list')
+    const countBefore = countCdpPages(listBefore.body ?? '[]')
+    if (countBefore > 0) {
+      launchBrowser()
+      console.log(`[ohos-playwright] opened new tab (${countBefore} existing page(s))`)
+      await retry(
+        async () => {
+          const r = await cdpGet(port, '/json/list')
+          return countCdpPages(r.body ?? '[]') > countBefore ? true : null
+        },
+        { max: 10, interval: 500, label: 'new tab did not appear in CDP' },
+      )
+      openedNewTab = true
+    }
+  }
+
   mkdirSync(dirname(INFO_PATH), { recursive: true })
-  writeFileSync(INFO_PATH, JSON.stringify({ port, pid, socket, endpoint: `http://127.0.0.1:${port}` }, null, 2))
+  writeFileSync(INFO_PATH, JSON.stringify({ port, pid, socket, endpoint: `http://127.0.0.1:${port}`, openedNewTab, launchUrl: LAUNCH_URL }, null, 2))
   console.log(`[ohos-playwright] wrote ${INFO_PATH}`)
 }

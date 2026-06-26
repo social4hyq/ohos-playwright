@@ -10,9 +10,11 @@ export interface DeviceDescriptor {
   userAgent?: string
 }
 
-function readEndpoint(): string {
-  return (JSON.parse(readFileSync(INFO_PATH, 'utf8')) as CdpInfo).endpoint
+function readInfo(): CdpInfo {
+  return JSON.parse(readFileSync(INFO_PATH, 'utf8')) as CdpInfo
 }
+
+function readEndpoint(): string { return readInfo().endpoint }
 
 export interface StorageState {
   cookies: { name: string; value: string; domain?: string; path?: string; url?: string }[]
@@ -84,7 +86,14 @@ export const test = base.extend<{
   ) => {
     const pages = context.pages()
     if (pages.length === 0) throw new Error('No pages in ArkWeb CDP context. Open a tab first.')
-    const page = pages.find((p) => p.url().startsWith('http://localhost')) ?? pages[0]
+    const info = readInfo()
+    // If globalSetup opened a fresh tab for the test, use it — this avoids
+    // disturbing user tabs that were open when the test suite started.
+    // The new tab is identified by its launchUrl (default: about:blank); if
+    // multiple tabs match, pick the last one (most recently opened).
+    const page = info.openedNewTab
+      ? ([...pages].reverse().find((p) => p.url() === (info.launchUrl ?? 'about:blank')) ?? pages[pages.length - 1])
+      : (pages.find((p) => p.url().startsWith('http://localhost')) ?? pages[0])
     const ctxEmit = (context as unknown as { emit: (e: string, v: unknown) => void }).emit.bind(context)
 
     // Patch baseURL
@@ -174,6 +183,11 @@ export const test = base.extend<{
       clearInterval(popupPoller)
       // Restore evaluate to prevent wrapper accumulation across tests.
       ;(page as unknown as { evaluate: unknown }).evaluate = savedEvaluate
+      // Close the tab we opened so the user's browser is left clean.
+      // page.close() sends Target.closeTarget via CDP; non-fatal if it fails.
+      if (info.openedNewTab) {
+        try { await page.close() } catch {}
+      }
     }
   },
 
