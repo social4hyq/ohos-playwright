@@ -63,9 +63,14 @@ export async function retry<T>(
 
 // Batch ps + /proc/net/unix into a single hdc shell call — avoids two
 // subprocess spawns and transfers.
+// Separator uses shell $$ (device shell PID) so the echo output is a numeric
+// string like "OHOS_SEP_12345". The hdc process itself is visible in ps with
+// literal "$$" in its args — no collision with the actual separator value.
 function fetchDeviceState(): { ps: string; unix: string } {
-  const raw = shellOnDevice('ps -o pid,args; echo "---SOCKET---"; cat /proc/net/unix')
-  const [ps, unix] = raw.split('---SOCKET---')
+  const raw = shellOnDevice('ps -o pid,args; echo "OHOS_SEP_$$"; cat /proc/net/unix')
+  const sepMatch = raw.match(/OHOS_SEP_\d+/)
+  if (!sepMatch) return { ps: raw, unix: '' }
+  const [ps, unix] = raw.split(sepMatch[0])
   return { ps: ps || '', unix: unix || '' }
 }
 
