@@ -54,6 +54,11 @@ export const test = base.extend<{
   // scope localStorage capture (defaults to the current page's origin).
   saveStorageState: (origin?: string) => Promise<StorageState>
   loadStorageState: (state: StorageState) => Promise<void>
+  // Emulation.setLocaleOverride is acked but ignored by ArkWeb. This fixture
+  // rewrites navigator.language and navigator.languages via addInitScript (which
+  // runs before any page script). It covers JS-layer locale reads; HTTP
+  // Accept-Language and browser UI locale are unaffected.
+  emulateLocale: (locale: string) => Promise<void>
 }>({
   browser: [
     async ({}, use: (b: Browser) => Promise<void>) => {
@@ -426,6 +431,15 @@ export const test = base.extend<{
         return items
       })
       return { cookies, origins: [{ origin: derivedOrigin, localStorage }] } as StorageState
+    })
+  },
+
+  emulateLocale: async ({ page }, use) => {
+    await use(async (locale: string) => {
+      await page.addInitScript((loc: string) => {
+        try { Object.defineProperty(navigator, 'language', { get: () => loc, configurable: true }) } catch {}
+        try { Object.defineProperty(navigator, 'languages', { get: () => [loc], configurable: true }) } catch {}
+      }, locale)
     })
   },
 
