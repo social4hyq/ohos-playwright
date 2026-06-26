@@ -183,10 +183,11 @@ export const test = base.extend<{
       clearInterval(popupPoller)
       // Restore evaluate to prevent wrapper accumulation across tests.
       ;(page as unknown as { evaluate: unknown }).evaluate = savedEvaluate
-      // Close the tab we opened so the user's browser is left clean.
-      // page.close() sends Target.closeTarget via CDP; non-fatal if it fails.
+      // Reset the test tab to about:blank so it's clean for the next test.
+      // page.close() sends Target.closeTarget which terminates the ArkWeb
+      // DevTools socket — use goto instead to keep the connection alive.
       if (info.openedNewTab) {
-        try { await page.close() } catch {}
+        try { await page.goto('about:blank') } catch {}
       }
     }
   },
