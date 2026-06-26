@@ -1,6 +1,7 @@
 // HTTPS 安全上下文下的 A/B 探针
 // 用 https://www.baidu.com 区分 ArkWeb vs Chrome/Edge 真实能力（避免 data:/about:blank 非安全上下文干扰）
 import { test } from '@playwright/test'
+// 推荐按顺序选择：baidu.com（国内极稳）、cn.bing.com（国内 + 微软）、example.com（国际极简但部分网络不可达）
 const HTTPS_PAGE = 'https://www.baidu.com'
 
 test('ab-https: ServiceWorkerContainer class + register attempt', async ({ page }) => {
