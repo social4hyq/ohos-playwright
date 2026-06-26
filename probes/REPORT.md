@@ -14,7 +14,7 @@
 
 | # | 原判定（2026-06-26） | 复审实证（2026-06-27） | 处置 |
 |---|---|---|---|
-| L1 newContext | ArkWeb 根本性，抛错 | `browser.newContext()` 实际成功（pages=0），仅 `ctx.newPage()` 抛 `_page` 错 | README 已更正；fixture 拦截保留（避免误用） |
+| L1 newContext | ArkWeb 根本性，抛错 | `browser.newContext()` 实际成功（pages=0），仅 `ctx.newPage()` 抛 `_page` 错；根因是 ArkWeb 把 `Target.createTarget` 创建的 target 标为 `type:'other'` 而非 `'page'`，playwright `_onAttachedToTarget` 跳过 | README 已更正；默认 fixture 拦截抛友好错误；**opt-in `PW_CHROMIUM_ATTACH_TO_OTHER=1` env 可让 newPage/goto/evaluate 全恢复**（详见 `docs/superpowers/reports/2026-06-27-newpage-breakthrough.md`） |
 | L2 HTTP UA | 不可改，ArkWeb 根本性 | `Emulation.setUserAgentOverride` 实测**改了** HTTP UA header（旧结论基于 `page.route` 拦截，是误测——拦截发生在 network stack 早期，UA override 还未应用）| README 已更正 |
 | L3 page.mouse.\* | 不触发 DOM 事件（窄边界） | ArkWeb 132 上 `mousemove/mousedown/mouseup/click` **全部触发**；与 Edge 149 一致 | README 已更正（窄边界描述移除） |
 | L4 :hover 伪类 | 根本性，JS dispatch 副作用 | fixture 已重写为 `boundingBox + page.mouse.move` 走真实 CDP Input 路径；`:hover` 现在**激活=true**；boundingBox hang 时 fallback JS dispatch | README 已更正；fixture.mts 已更新 |

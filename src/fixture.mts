@@ -63,24 +63,29 @@ export const test = base.extend<{
   browser: [
     async ({}, use: (b: Browser) => Promise<void>) => {
       const browser = await chromium.connectOverCDP(readEndpoint())
-      // ArkWeb CDP does not implement Target.createBrowserContext — connectOverCDP
-      // reuses the single existing context. browser.newContext() returns without
-      // throwing but produces an empty shell (0 pages) that silently fails every
-      // subsequent operation. Intercept and throw an explicit, actionable error
-      // so users aren't misled by the false-positive success.
-      const origNewContext = browser.newContext.bind(browser) as Browser['newContext']
-      ;(browser as unknown as { newContext: Browser['newContext'] }).newContext = (() => {
-        throw new Error(
-          'browser.newContext() is not supported in ArkWeb CDP mode (single context only). ' +
-          'Tests share one context and one page — isolate with localStorage.clear() + page.reload(). ' +
-          'See ohos-playwright README "Limitations" section.',
-        )
-      }) as Browser['newContext']
-      try {
+      // ArkWeb's Target.createTarget returns type='other', so Playwright's
+      // crBrowser._onAttachedToTarget skips it and ctx.newPage() throws
+      // "Cannot read properties of undefined (reading '_page')". The upstream
+      // PW_CHROMIUM_ATTACH_TO_OTHER=1 escape hatch fixes newContext/newPage
+      // but also makes Playwright treat internal "other" targets as pages
+      // (perturbs touchscreen / recordHar). When the user has not opted in,
+      // intercept browser.newContext() with a friendly, actionable error.
+      if (!process.env.PW_CHROMIUM_ATTACH_TO_OTHER) {
+        const origNewContext = browser.newContext.bind(browser) as Browser['newContext']
+        ;(browser as unknown as { newContext: Browser['newContext'] }).newContext = (() => {
+          throw new Error(
+            'browser.newContext() is not supported on ArkWeb unless you opt in via ' +
+            'process.env.PW_CHROMIUM_ATTACH_TO_OTHER=\'1\' before importing @playwright/test. ' +
+            'See ohos-playwright README "Limitations" → "Multi-context" for trade-offs.',
+          )
+        }) as Browser['newContext']
+        try {
+          await use(browser)
+        } finally {
+          ;(browser as unknown as { newContext: Browser['newContext'] }).newContext = origNewContext
+        }
+      } else {
         await use(browser)
-      } finally {
-        // Restore in case the browser object is reused across workers.
-        ;(browser as unknown as { newContext: Browser['newContext'] }).newContext = origNewContext
       }
     },
     { scope: 'worker' as const },
