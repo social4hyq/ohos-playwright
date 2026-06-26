@@ -1,0 +1,26 @@
+(node:7920) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[ohos-playwright] locating com.huawei.hmos.browser...
+[ohos-playwright] browser pid=54786
+[ohos-playwright] socket=webview_devtools_remote_54786
+[ohos-playwright] hdc fport tcp:36193 -> localabstract:webview_devtools_remote_54786
+[ohos-playwright] CDP ready: Chrome/132.0.6834.89
+[ohos-playwright] opened new tab (23 existing page(s))
+[ohos-playwright] wrote /data/storage/el2/base/tmp/ohos-playwright-cdp.json
+
+Running 3 tests using 1 worker
+
+(node:8130) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[PROBE ua-override] via=Emulation result.ua="Mozilla/5.0 (OhosPwTestUA) PlaywrightProbe/1.0"
+[PROBE ua-override] via=Emulation matches=true
+  ✓  1 [chromium] › probes/ua-override.spec.ts:18:1 › ua-override: Emulation.setUserAgentOverride (baseline reproduction) (461ms)
+[PROBE ua-override] via=Network result.ua="Mozilla/5.0 (OhosPwTestUA) PlaywrightProbe/1.0"
+[PROBE ua-override] via=Network matches=true
+  ✓  2 [chromium] › probes/ua-override.spec.ts:29:1 › ua-override: Network.setUserAgentOverride (the candidate) (418ms)
+[PROBE ua-override] via=Network http-ua=""
+[PROBE ua-override] via=Network http-matches=false
+  ✓  3 [chromium] › probes/ua-override.spec.ts:41:1 › ua-override: HTTP request header (does either route reach the wire?) (3.8s)
+[ohos-playwright] removed fport tcp:36193 localabstract:webview_devtools_remote_54786
+
+  3 passed (8.3s)
