@@ -96,7 +96,9 @@ test('precise viewport', async ({ page, emulateDevice }) => {
 `emulateDevice` settings persist for the lifetime of the page. Call it again with `{ viewport: { width: 1280, height: 720 }, isMobile: false }` to restore defaults.
 
 > **⚠️ `isMobile: true` does not produce a precise viewport on ArkWeb.**
-> When `Emulation.setDeviceMetricsOverride` is called with `mobile: true`, ArkWeb enables its mobile layout-viewport compatibility path and renders at the 980px default mobile layout viewport — the passed `width`/`height` are effectively ignored (`window.innerWidth` reads 980 regardless). `deviceScaleFactor` has no effect on this. Use `isMobile: false` when you need an exact pixel viewport. Note that `userAgent` is also not applied (`Emulation.setUserAgentOverride` is acked but ignored by ArkWeb); the browser UA cannot be changed via CDP.
+> When `Emulation.setDeviceMetricsOverride` is called with `mobile: true`, ArkWeb enables its mobile layout-viewport compatibility path and renders at the 980px default mobile layout viewport — the passed `width`/`height` are effectively ignored (`window.innerWidth` reads 980 regardless). `deviceScaleFactor` has no effect on this. Use `isMobile: false` when you need an exact pixel viewport.
+>
+> **`userAgent` override requires a subsequent navigation.** `Emulation.setUserAgentOverride` is applied by ArkWeb, but takes effect only after the next `page.goto()` call — the currently-loaded page's `navigator.userAgent` is not updated in-place. Call `await emulateDevice({ userAgent: '...' })` before `page.goto(url)` and the overridden UA will be present on the destination page. Note: the HTTP `User-Agent` request header is not changed by ArkWeb's UA override (only the JS-layer `navigator.userAgent` is affected).
 
 ### `tap` fixture
 
@@ -119,7 +121,7 @@ Coordinates are CSS pixels relative to the viewport (same as `touchscreen.tap`).
 
 - **Chromium only.** firefox and webkit aren't available on HarmonyOS.
 - **One context, one page.** `newContext()` / `newPage()` aren't supported (both throw an explicit error). Isolate tests with `localStorage.clear()` + `page.reload()`. For device emulation use the `emulateDevice` fixture instead of `browser.newContext({ ...device })`.
-- **`Emulation.setUserAgentOverride` is ignored** — the command is acked but `navigator.userAgent` is unchanged. The browser UA cannot be changed via CDP.
+- **`userAgent` override applies only after the next navigation** — `Emulation.setUserAgentOverride` takes effect on the next `page.goto()`, not on the currently-loaded page. The HTTP `User-Agent` request header is not changed (ArkWeb ignores the Network-domain override for outgoing headers).
 - **`locator.hover()` does not activate CSS `:hover`** — the adapter's hover override dispatches `mouseover` / `mouseenter` via JavaScript, so event listeners fire but the `:hover` pseudo-class is not set (no real pointer position). Use `:focus`-driven styles or check `mouseover` event receipt rather than CSS state.
 - **`page.mouse.move()` / `page.mouse.down()` / `page.mouse.up()` have a narrow edge case** — events reach DOM listeners correctly for typical web pages. However, if a `data:` URL with embedded newlines is used AND the same function reference is registered for multiple event types on the same element, ArkWeb's event callback routing silently fails. Prefer `locator.click()` / `locator.dragTo()` for most interactions; the `mouseMove` / `mouseDown` / `mouseUp` fixtures remain as JS-dispatch fallbacks for unusual cases.
 - **`emulateDevice({ isMobile: true })` does not apply the viewport** — see the note in the `emulateDevice` fixture section above.

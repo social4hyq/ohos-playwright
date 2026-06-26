@@ -197,24 +197,29 @@ v0.2.10 报告 `browser.newContext()` 返回空壳 context 不报错（危险假
 
 ---
 
-## Limitations 可行性审计矩阵（调用链追踪，2026-06-26）
+## Limitations 最终可行性判定（2026-06-26 收尾）
 
-**方法：** 逐项追踪 playwright-core 内部调用链（`node_modules/playwright-core/lib/`）定位 CDP 命令发送点，判定 ArkWeb 拒绝是在哪一层发生、能否被 adapter 层（`base.extend()`）截获。
+**方法：** 对每项 limitation 追踪 playwright-core 内部调用链（`node_modules/playwright-core/lib/`）定位 CDP 命令发送点，结合本仓库已交付的探针实证数据（A/B baseline + HTTPS A/B + UA-override 直发 CDP），给出本仓库对每项的最终处置决定。
 
-| # | Limitation | playwright-core 调用点 | 判定 | 实施 |
+| # | Limitation | playwright-core 调用点 | 判定 | 本仓库处置 |
 |---|---|---|---|---|
-| 1 | `newContext` / `newPage` 抛错 | `crBrowser.ts:111` → `Target.createBrowserContext` | **ArkWeb 根本性缺陷**（`Target` domain 无 createBrowserContext / createTarget）| 仅文档化 |
-| 2 | `setUserAgentOverride` 被忽略 | `crPage.ts:997` `Emulation.setUserAgentOverride` | **边界情况**（ArkWeb 可能认 `Network.setUserAgentOverride`，但要换得改 core）| 加入 A/B 验证清单 |
-| 3 | `page.mouse.*` 不触发 DOM 事件 | `crInput.ts:106-157` `Input.dispatchMouseEvent` | **ArkWeb 根本性缺陷**；JS-synth fallback 已交付并文档化 | 仅文档化 |
-| 4 | `locator.hover()` 不激活 CSS `:hover` | `dom.ts:537` → 同上 crInput 路径 | **ArkWeb 根本性缺陷**（CSS `:hover` 必须真实指针位置）| 仅文档化 |
-| 5 | Service Workers（非安全上下文）| `crBrowser.ts:189-235` | **判定更正**：ArkWeb 实现了 SW API；在 HTTPS 上 `navigator.serviceWorker` 可用、`register()` 返回预期 TypeError（文件不存在）而非 NotSupportedError。非安全上下文（data:/about:blank）所有浏览器均不暴露 SW | 已移至 ✅ Supported |
-| 6 | Clipboard（非安全上下文）| 渲染端 `navigator.clipboard` | **判定更正**：ArkWeb 实现了 Clipboard API；在 HTTPS + grantPermissions 下 writeText/readText 均正常工作，返回 `ok:ohos-pw-test`。非安全上下文所有浏览器均不暴露 clipboard | 已移至 ✅ Supported |
-| 7 | `isMobile:true` viewport 锁 980px | `crPage.ts:920-959` `Emulation.setDeviceMetricsOverride` | **ArkWeb 根本性缺陷**（移动 layout viewport 硬编码 980px）| 仅文档化 |
-| 8 | `setLocaleOverride` 被忽略 | `crPage.ts:1145` `Emulation.setLocaleOverride` | **ArkWeb 缺陷，adapter 部分可修** | **已修复（emulateLocale fixture）** |
-| 9 | `exposeBinding { handle: true }` undefined | `server/page.ts:1033-1046` `PageBinding.dispatch` 忽略 handle | **必须改 playwright-core**（binding dispatch 是 server 内部，adapter 拦不住）| 文档化 + 待后续计划 |
-| 10 | `process.platform === 'linux'` 兜底 | `crPage.ts:940-944`、`registry/index.ts` | **干净修法需改 core**；Node 级 patch 是务实折中 | 仅文档化（patch 已在位）|
+| 1 | `newContext` / `newPage` 抛错 | `crBrowser.ts:111` Target.createBrowserContext | **ArkWeb 根本性**（Target domain 无 createBrowserContext / createTarget）| 仅文档化 |
+| 2 | `setUserAgentOverride` 时序问题 | `crPage.ts:997` Emulation.setUserAgentOverride | **判定更正**：ArkWeb 实际执行 UA override，**但只对下一次 `page.goto()` 生效**（不改写当前已加载页的 `navigator.userAgent`）。HTTP User-Agent header 不受影响（Network domain UA override 对出站请求头无效）。`emulateDevice({ userAgent })` 后跟 `page.goto()` 即可得到修改后的 UA | 已文档化；fixture 注释已更正；HTTP 层无法修复（ArkWeb 根本性）|
+| 3 | `page.mouse.*` 不触发 DOM 事件 | `crInput.ts:106-157` Input.dispatchMouseEvent | **ArkWeb 根本性**（Input domain 鼠标事件不传递至 DOM）；仅 data: URL + 换行 + 共享函数引用这一窄边界在正常页面也失败 | 仅文档化；JS-synth fallback fixtures 已交付 |
+| 4 | `locator.hover()` 不激活 CSS `:hover` | `dom.ts:537` → 同上 crInput 路径 | **ArkWeb 根本性**（CSS `:hover` 需真实指针位置）| 仅文档化（已交付 mouseover/mouseenter 触达修复）|
+| 5 | `exposeBinding({ handle: true })` undefined | `server/page.ts:1033-1046` PageBinding.dispatch 忽略 handle | **必须 vendored playwright-core fork**（binding dispatch 是 server 内部，adapter 拦不住）| **本仓库不做**——用户后续单开计划 |
+| 6 | `process.platform === 'linux'` 兜底 | `crPage.ts:940-944`、`registry/index.ts` | Node 级 patch 已在位（`process.env.OHOS_PW_HOST`）；干净修法需上游合并 OpenHarmony 平台检测 | 维持现状 |
 
-**汇总：** 10 项中，7 项 ArkWeb 根本性缺陷（任何层都无法补），2 项必须改 playwright-core（#9、#10），1 项 adapter 已修（#8）。
+**汇总：** 6 项中，3 项 ArkWeb 根本性（任何层都补不了），1 项需 vendored core fork（#5），1 项已有 Node 级折中（#6），1 项判定更正为"时序限制而非根本性缺陷"（#2）。本仓库不承担 playwright-core fork。
+
+**已经从 limitation 摘除的项**（A/B 实证为非缺陷或大幅收窄）：
+
+| 旧条目 | 实证 | 现状 |
+|---|---|---|
+| Service Workers undefined | HTTPS A/B（`probes/ab-https.spec.ts`）：ArkWeb 完整暴露 SW API，`register()` 返回与 Chrome 同样的 TypeError | ✅ Supported（HTTPS 安全上下文）|
+| Clipboard 不可用 | HTTPS A/B + grantPermissions：`writeText`/`readText` 返回 `ok:ohos-pw-test` | ✅ Supported（HTTPS + grantPermissions）|
+| mouse.move/down/up 不触发 DOM | 二分定位（`probes/mouse-var-vs-const.spec.ts`）：仅在 data: URL（含换行）+ 共享函数引用注册多事件类型时静默失败 | ⚠️ 窄边界（README 已改述）|
+| setLocaleOverride 被忽略 | ArkWeb CDP 命令无效，但 `addInitScript` 可改写 JS 层 `navigator.language` / `languages` | ⚠️ 已修（emulateLocale fixture）|
 
 ---
 
@@ -244,6 +249,18 @@ HTTPS 安全上下文探针（`https://www.baidu.com`）：
 | `clipboard.writeText+readText` | `ok:ohos-pw-test` ✅ | `ok:` (空，剪贴板隔离) | **ArkWeb clipboard 完整工作** |
 
 *ArkWeb 腿日志：`logs/ab-arkweb.log`。Edge 腿通过 `OHOS_PW_CDP_URL=http://192.168.3.60:9222` 在同一宿主运行。*
+
+UA-override 直发 CDP 探针（`probes/ua-override.spec.ts`）：
+
+| 探针 | ArkWeb 132 | Edge 149 | 结论 |
+|---|---|---|---|
+| `Emulation.setUserAgentOverride` → `navigator.userAgent` | `matches=true` ✅ | `matches=true` ✅ | **两边均生效**（navigate 后读取）|
+| `Network.setUserAgentOverride` → `navigator.userAgent` | `matches=true` ✅ | `matches=true` ✅ | 两边均生效 |
+| `Network.setUserAgentOverride` → HTTP User-Agent header | `""` ❌ | `matches=true` ✅ | ArkWeb 不改出站请求头；Edge 正常 |
+
+*日志：`logs/ua-override-arkweb.log` / `logs/ua-override-edge.log`。*
+
+**结论：** ArkWeb 对 `Emulation.setUserAgentOverride` 和 `Network.setUserAgentOverride` 均执行 JS 层 `navigator.userAgent` 改写，但要求发出命令后执行一次 `page.goto()`（navigate-to-apply 语义）。原文档"UA 被忽略"的结论是错误的——实为时序问题。HTTP 层 User-Agent 无法通过 CDP 改变（ArkWeb 根本性限制）。
 
 ---
 

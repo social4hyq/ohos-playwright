@@ -315,7 +315,9 @@ export const test = base.extend<{
             'Use isMobile: false for a precise viewport.',
           )
         }
-        // ArkWeb note: setUserAgentOverride is acked but ignored — UA cannot be changed via CDP.
+        // ArkWeb note: setUserAgentOverride takes effect after the next page.goto() — the override
+        // applies to the destination page's navigator.userAgent but not the currently-loaded page.
+        // The HTTP User-Agent header is also not changed by ArkWeb's UA override.
         await session.send('Emulation.setDeviceMetricsOverride', {
           width: descriptor.viewport.width,
           height: descriptor.viewport.height,
