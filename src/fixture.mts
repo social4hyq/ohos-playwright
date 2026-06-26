@@ -14,6 +14,11 @@ function readEndpoint(): string {
   return (JSON.parse(readFileSync(INFO_PATH, 'utf8')) as CdpInfo).endpoint
 }
 
+export interface StorageState {
+  cookies: { name: string; value: string; domain?: string; path?: string; url?: string }[]
+  origins: { origin: string; localStorage: { name: string; value: string }[] }[]
+}
+
 export const test = base.extend<{
   emulateDevice: (descriptor: DeviceDescriptor) => Promise<void>
   // ArkWeb fully implements touch via CDP Input.dispatchTouchEvent, but
@@ -22,6 +27,13 @@ export const test = base.extend<{
   // CDP-backed tap that works regardless. Coordinates are CSS pixels relative
   // to the viewport, matching Playwright's touchscreen.tap semantics.
   tap: (x: number, y: number) => Promise<void>
+  // Playwright's context.storageState() / use:{storageState} rely on internal
+  // _page fixtures that break in single-context reuse mode. These helpers
+  // serialize/restore cookies + localStorage via the working addCookies/
+  // cookies/clearCookies + page.evaluate paths. Pass an explicit origin to
+  // scope localStorage capture (defaults to the current page's origin).
+  saveStorageState: (origin?: string) => Promise<StorageState>
+  loadStorageState: (state: StorageState) => Promise<void>
 }>({
   browser: [
     async ({}, use: (b: Browser) => Promise<void>) => {
@@ -222,6 +234,53 @@ export const test = base.extend<{
         })
       } finally {
         await session.detach()
+      }
+    })
+  },
+
+  saveStorageState: async ({ page, context }, use) => {
+    await use(async (origin?: string) => {
+      const derivedOrigin = origin ?? new URL(page.url()).origin
+      // Cookies come from the context (works in reuse mode). Filter to the
+      // target origin so we don't serialise unrelated domains that happen to
+      // share the single ArkWeb context. Match by hostname (cookies store
+      // domain without port; e.g. cookie.domain='127.0.0.1' for host 127.0.0.1:port).
+      const hostname = new URL(derivedOrigin).hostname
+      const allCookies = await context.cookies()
+      const cookies = allCookies
+        .filter((c) => {
+          if (!origin) return true
+          const d = c.domain ?? ''
+          // cookie domain may have leading '.' (host-only=false) — strip it.
+          const bare = d.startsWith('.') ? d.slice(1) : d
+          return bare === hostname || hostname.endsWith(bare)
+        })
+        .map((c) => ({ name: c.name, value: c.value, domain: c.domain, path: c.path }))
+      // localStorage must be read in a same-origin document; navigate if needed.
+      const cur = page.url()
+      if (!cur.startsWith(derivedOrigin)) await page.goto(derivedOrigin + '/')
+      const localStorage = await page.evaluate(() => {
+        const items: { name: string; value: string }[] = []
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const name = window.localStorage.key(i)!
+          items.push({ name, value: window.localStorage.getItem(name)! })
+        }
+        return items
+      })
+      return { cookies, origins: [{ origin: derivedOrigin, localStorage }] } as StorageState
+    })
+  },
+
+  loadStorageState: async ({ page, context }, use) => {
+    await use(async (state: StorageState) => {
+      if (state.cookies?.length) await context.addCookies(state.cookies as Parameters<typeof context.addCookies>[0])
+      for (const o of state.origins ?? []) {
+        if (!o.localStorage?.length) continue
+        // localStorage writes must run in a same-origin document.
+        if (!page.url().startsWith(o.origin)) await page.goto(o.origin + '/')
+        await page.evaluate((items) => {
+          for (const { name, value } of items) window.localStorage.setItem(name, value)
+        }, o.localStorage)
       }
     })
   },
