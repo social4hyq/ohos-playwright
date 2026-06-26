@@ -71,6 +71,7 @@ The following Playwright APIs have been validated on ArkWeb / HarmonyOS 6.1 (Chr
 | Navigation history | `page.goBack()`, `page.goForward()` — implemented via `history.back/forward()` + CDP polling; returns when the history index changes |
 | Hover events | `locator.hover()` — fires `mouseover` / `mouseenter` event listeners; CSS `:hover` pseudo-class is **not** activated (adapter uses JS dispatch, not a real pointer move) |
 | Locale (partial) | `emulateLocale(tag)` fixture — rewrites `navigator.language` / `navigator.languages` via `addInitScript`; does not affect HTTP `Accept-Language` or browser UI locale |
+| User-Agent (partial) | `emulateDevice({ userAgent })` — overrides `navigator.userAgent` for page scripts; call before `page.goto()` for the override to take effect. HTTP `User-Agent` request headers are not changed. |
 | Service Workers | `navigator.serviceWorker.register()` — works on HTTPS pages; `navigator.serviceWorker` is `undefined` on non-secure origins (`data:`, `about:blank`) as in all browsers |
 | Clipboard | `navigator.clipboard.writeText()` / `readText()` — works on HTTPS pages after `context.grantPermissions(['clipboard-read', 'clipboard-write'])`; unavailable on non-secure origins |
 
@@ -98,7 +99,7 @@ test('precise viewport', async ({ page, emulateDevice }) => {
 > **⚠️ `isMobile: true` does not produce a precise viewport on ArkWeb.**
 > When `Emulation.setDeviceMetricsOverride` is called with `mobile: true`, ArkWeb enables its mobile layout-viewport compatibility path and renders at the 980px default mobile layout viewport — the passed `width`/`height` are effectively ignored (`window.innerWidth` reads 980 regardless). `deviceScaleFactor` has no effect on this. Use `isMobile: false` when you need an exact pixel viewport.
 >
-> **`userAgent` override requires a subsequent navigation.** `Emulation.setUserAgentOverride` is applied by ArkWeb, but takes effect only after the next `page.goto()` call — the currently-loaded page's `navigator.userAgent` is not updated in-place. Call `await emulateDevice({ userAgent: '...' })` before `page.goto(url)` and the overridden UA will be present on the destination page. Note: the HTTP `User-Agent` request header is not changed by ArkWeb's UA override (only the JS-layer `navigator.userAgent` is affected).
+> **`userAgent` override is JS-layer only.** Call `await emulateDevice({ userAgent: '...' })` before `page.goto(url)` — `navigator.userAgent` on the destination page will reflect the override. The HTTP `User-Agent` request header is not changed (ArkWeb does not honour CDP UA overrides for outgoing headers).
 
 ### `tap` fixture
 
@@ -121,11 +122,10 @@ Coordinates are CSS pixels relative to the viewport (same as `touchscreen.tap`).
 
 - **Chromium only.** firefox and webkit aren't available on HarmonyOS.
 - **One context, one page.** `newContext()` / `newPage()` aren't supported (both throw an explicit error). Isolate tests with `localStorage.clear()` + `page.reload()`. For device emulation use the `emulateDevice` fixture instead of `browser.newContext({ ...device })`.
-- **`userAgent` override applies only after the next navigation** — `Emulation.setUserAgentOverride` takes effect on the next `page.goto()`, not on the currently-loaded page. The HTTP `User-Agent` request header is not changed (ArkWeb ignores the Network-domain override for outgoing headers).
+- **HTTP `User-Agent` request header is not changeable** — ArkWeb does not honour any CDP UA-override command for outgoing HTTP headers. `navigator.userAgent` (JS-layer) can be changed: call `emulateDevice({ userAgent: '...' })` before `page.goto()` and the overridden value will be visible to page scripts. Server-side UA detection based on the HTTP header is not affected.
 - **`locator.hover()` does not activate CSS `:hover`** — the adapter's hover override dispatches `mouseover` / `mouseenter` via JavaScript, so event listeners fire but the `:hover` pseudo-class is not set (no real pointer position). Use `:focus`-driven styles or check `mouseover` event receipt rather than CSS state.
 - **`page.mouse.move()` / `page.mouse.down()` / `page.mouse.up()` have a narrow edge case** — events reach DOM listeners correctly for typical web pages. However, if a `data:` URL with embedded newlines is used AND the same function reference is registered for multiple event types on the same element, ArkWeb's event callback routing silently fails. Prefer `locator.click()` / `locator.dragTo()` for most interactions; the `mouseMove` / `mouseDown` / `mouseUp` fixtures remain as JS-dispatch fallbacks for unusual cases.
 - **`emulateDevice({ isMobile: true })` does not apply the viewport** — see the note in the `emulateDevice` fixture section above.
-- **`Emulation.setLocaleOverride` is ignored** — the CDP command is acked but has no effect. Use the `emulateLocale` fixture instead; it rewrites `navigator.language` / `navigator.languages` via `addInitScript` (JS-layer only — HTTP `Accept-Language` and browser UI locale are unaffected).
 - **`exposeBinding` handle mode returns `undefined`** — when `{ handle: true }` is passed, the JSHandle's `.jsonValue()` resolves to `undefined`. Use `exposeFunction` or a plain `exposeBinding` (without `handle`) instead.
 - **`process.platform` reads `'linux'`** during the run — we patch it because Playwright's hostPlatform detection only branches on linux/darwin/win32 and falls through to `<unknown>` on openharmony. For real platform checks use `process.env.OHOS_PW_HOST`.
 
