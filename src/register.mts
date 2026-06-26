@@ -1,4 +1,5 @@
-import { register } from 'node:module'
+import { registerHooks } from 'node:module'
+import { resolve } from './loader.mjs'
 
 // Adapter only activates on OpenHarmony — elsewhere this file is a no-op so
 // the same ohos-playwright entry point and the same playwright.config.ts can
@@ -40,5 +41,5 @@ if ((process.platform as string) === 'openharmony') {
   //   process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1'
   // before importing @playwright/test.
 
-  register('./loader.mts', import.meta.url)
+  registerHooks({ resolve })
 }

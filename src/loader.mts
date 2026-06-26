@@ -1,5 +1,6 @@
 import { resolve as resolvePath } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import type { ResolveHookContext, ResolveFnOutput } from 'node:module'
 
 const FIXTURE_URL = pathToFileURL(resolvePath(import.meta.dirname!, 'fixture.mts')).href
 const TARGET = '@playwright/test'
@@ -12,22 +13,16 @@ const OWN_DIST_URL = pathToFileURL(resolvePath(import.meta.dirname!) + '/').href
 const PACKAGE_ROOT_URL = pathToFileURL(resolvePath(import.meta.dirname!, '..') + '/').href
 const PROJECT_ANCHOR = pathToFileURL(resolvePath(process.cwd(), 'noop.mjs')).href
 
-interface ResolveContext { parentURL?: string; [key: string]: unknown }
-interface NextResolve {
-  (specifier: string, context: ResolveContext): { url: string } | Promise<{ url: string }>
-}
-
-export async function resolve(
+export function resolve(
   specifier: string,
-  context: ResolveContext,
-  nextResolve: NextResolve,
-): Promise<{ url: string }> {
+  context: ResolveHookContext,
+  nextResolve: (specifier: string, context?: Partial<ResolveHookContext>) => ResolveFnOutput,
+): ResolveFnOutput {
   if (specifier === TARGET) {
     const parent = context.parentURL ?? ''
     const isFromOwnDist = parent.startsWith(OWN_DIST_URL)
     if (TEST_FILE.test(parent) || (FIXTURE_HELPER.test(parent) && !isFromOwnDist)) {
-      const result = await nextResolve(FIXTURE_URL, context)
-      return { url: result.url }
+      return nextResolve(FIXTURE_URL, context)
     }
     if (parent.startsWith(PACKAGE_ROOT_URL)) {
       return nextResolve(specifier, { ...context, parentURL: PROJECT_ANCHOR })
