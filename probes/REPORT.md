@@ -4,7 +4,7 @@
 
 **测试方法：** 68 个针对性探针 spec，覆盖 38 个能力域（4 批次累积）。每个探针用 try/catch + 超时兜底（`Promise.race` + HANG 检测），捕获**真实失败模式**（hang / throw / 错误值 / 假阳性），而非简单断言。
 
-**关键结论（v0.3.2 实测，2026-06-26）：** 完全支持 28 项，部分支持 4 项，不支持 6 项。相比 v0.2.10 有 3 处翻转：`mouse.wheel` 滚动现已生效、`page.workers()` 现已可见 worker、`newContext` 现已抛明确错误（不再假阳性）。
+**关键结论（v0.3.2 实测，2026-06-26，limitation fix 更新）：** 完全支持 30 项，部分支持 5 项，不支持 4 项。相比初始报告新增 2 项支持：`page.goBack/goForward`（CDP 轮询方案修复）、`locator.hover()`（JS dispatch 方案修复，但 CSS :hover 伪类不激活）。`page.mouse.move/down/up` 仍为已知限制。
 
 ---
 
@@ -50,6 +50,7 @@
 | **Accessibility.getFullAXTree（裸 CDP）** | 返回完整节点树（11 节点，含 button/heading role） |
 | **WebSocket 基线 + routeWebSocket** | 真实 WS 收发正常；`page.routeWebSocket` 拦截生效（需 Playwright ≥ 1.48） |
 | **page.coverage JS/CSS** | startJSCoverage / stopJSCoverage / startCSSCoverage 均返回 entry |
+| **page.goBack / page.goForward** | **CDP history 导航 hang 已修复：adapter 用 history.back/forward() + 轮询 currentIndex 实现，耗时 ~100–200ms** |
 
 ### ⚠️ 部分支持 / 有边界（4 项）
 
@@ -59,6 +60,7 @@
 | **setUserAgentOverride** | ⚠️ 不生效 | CDP 命令成功但 `navigator.userAgent` 不变（ArkWeb 内核接收不应用） |
 | **clipboard** | ⚠️ 假阳性 | writeText/readText 不报错，但 readText 返回 undefined（权限授予后仍读不到） |
 | **page.mouse.move/down/up/click（原始）** | ⚠️ 事件不触发 DOM 元素监听器 | 命令成功不报错，但 mousemove/mousedown/mouseup/click 事件未到达目标元素（events=""）。`locator.click()` 正常工作，推测 locator 走不同内部路径 |
+| **locator.hover()** | ⚠️ mouseover/mouseenter 有效，CSS :hover 无效 | JS dispatch 方案修复了 hang，事件监听器可触达；但 JS 合成事件不设置真实指针位置，`:hover` 伪类不激活 |
 | **exposeBinding handle 模式** | ⚠️ 返回 undefined | `{ handle: true }` 时回调接收到的 handle.jsonValue() 返回 undefined |
 | **JS coverage 跨页累积** | ⚠️ 部分工作 | `resetOnNavigation: false` 下 entryCount 仍为 1（未累积到 ≥2），单页 entry 本身有效 |
 | **CDP Network.webSocketCreated 事件** | ⚠️ 不触发 | `Network.enable` 后 WS 连接建立，但 CDP 事件 `events=[]`（ArkWeb 未推送 WS 网络事件） |
@@ -69,8 +71,6 @@
 |---|---|---|
 | **newPage** | throw `Cannot read properties of undefined (reading '_page')` | 120ms |
 | **newContext** | throw 明确错误（v0.3.2 已修复假阳性，现在正确抛出） | <1ms |
-| **hover (locator.hover)** | Timeout 5000ms（hang） | 5s+ |
-| **goBack / goForward** | Timeout 5000ms（hang），两者根因相同 | 5s+ |
 | **serviceWorker** | `navigator.serviceWorker` undefined（ArkWeb 未实现 SW） | 即时 |
 | **locale override** | `Emulation.setLocaleOverride` 命令成功但 `navigator.language` 不变 | 即时 |
 
@@ -92,13 +92,21 @@
 
 **根因：** ArkWeb 在 `Emulation.setDeviceMetricsOverride` 的 `mobile: true` 时，启用了移动端 viewport meta 兼容路径，实际渲染走 980px 默认移动 layout viewport（历史兼容行为）。`mobile: false` 走桌面路径，精确生效。**修正办法：** 用 `isMobile: false` 获得精确 viewport。
 
-### hover / goBack / goForward —— 合成事件与历史导航 hang
+### goBack / goForward —— CDP 历史导航 hang（已修复）
 
-三者均稳定 5s 超时：
-- `locator.hover()` → ArkWeb 对 CDP `Input.dispatchMouseEvent`（mouseMoved type）合成事件处理阻塞
-- `page.goBack()` / `page.goForward()` → ArkWeb 单 tab 复用 + 历史栈导航不响应 CDP `Page.navigate` 的 history 模式
+原根因：`Page.navigateToHistoryEntry` 在 ArkWeb 从不 resolve；`Page.frameNavigated` 事件也不触发（无法用 `waitForURL` 检测导航完成）。
 
-**影响：** 避免 hover 断言（改用 `:focus` 或 click 替代）；避免 goBack/goForward（改用 goto 重新导航）。
+**修复方案：** 调用 `history.back()` / `history.forward()`（浏览器内部，总是有效），轮询 `Page.getNavigationHistory.currentIndex` 直到 index 变化——ArkWeb 在 history 跳转后确实更新这个值（169ms / 112ms 实测）。
+
+**现状：** `page.goBack()` / `page.goForward()` 现已生效，返回 `ok`，耗时 ~100–200ms。
+
+### hover —— CDP hang（已修复，CSS :hover 仍不激活）
+
+原根因：`Input.dispatchMouseEvent(mouseMoved)` 在 ArkWeb 下阻塞。
+
+**修复方案：** fixture 层 override `page.locator().hover()`，改为 `locator.evaluate` 里 JS dispatch `mouseover` / `mouseenter` 事件（isTrusted: false）。
+
+**现状：** `locator.hover()` 不再 hang，`mouseover` / `mouseenter` 事件监听器触达（fired=true，< 500ms）。CSS `:hover` 伪类不激活（JS 合成事件无真实指针位置）。
 
 ### page.mouse.* 原始 API —— 命令送达但 DOM 事件不触发
 

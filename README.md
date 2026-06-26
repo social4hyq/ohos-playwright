@@ -68,6 +68,8 @@ The following Playwright APIs have been validated on ArkWeb / HarmonyOS 6.1 (Chr
 | Web workers | `page.workers()` — returns the list of active workers |
 | WebSocket | `page.routeWebSocket()` (requires Playwright ≥ 1.48) — intercepts WebSocket connections |
 | Accessibility (CDP) | `newCDPSession` + `Accessibility.getFullAXTree` — returns the full AX node tree |
+| Navigation history | `page.goBack()`, `page.goForward()` — implemented via `history.back/forward()` + CDP polling; returns when the history index changes |
+| Hover events | `locator.hover()` — fires `mouseover` / `mouseenter` event listeners; CSS `:hover` pseudo-class is **not** activated (adapter uses JS dispatch, not a real pointer move) |
 
 ### `emulateDevice` fixture
 
@@ -114,10 +116,9 @@ Coordinates are CSS pixels relative to the viewport (same as `touchscreen.tap`).
 
 - **Chromium only.** firefox and webkit aren't available on HarmonyOS.
 - **One context, one page.** `newContext()` / `newPage()` aren't supported (both throw an explicit error). Isolate tests with `localStorage.clear()` + `page.reload()`. For device emulation use the `emulateDevice` fixture instead of `browser.newContext({ ...device })`.
-- **`locator.hover()` hangs** on ArkWeb (CDP `Input.dispatchMouseEvent` mouseMoved blocks until the Playwright timeout). Use `:focus`-driven styles or a direct `click()` instead of hover-driven assertions.
-- **`page.goBack()` / `page.goForward()` hang** (CDP history navigation never resolves). Re-navigate with `page.goto()` instead.
 - **`Emulation.setUserAgentOverride` is ignored** — the command is acked but `navigator.userAgent` is unchanged. The browser UA cannot be changed via CDP.
-- **`page.mouse.move()` / `page.mouse.down()` / `page.mouse.up()` do not trigger DOM element listeners** — the commands succeed without error, but `mousemove` / `mousedown` / `mouseup` handlers on target elements receive no events. Use `locator.click()` / `locator.dragTo()` instead; those go through a different internal path and work correctly.
+- **`page.mouse.move()` / `page.mouse.down()` / `page.mouse.up()` do not trigger DOM element listeners** — the commands succeed without error, but `mousemove` / `mousedown` / `mouseup` handlers on target elements receive no events. Use `locator.click()` / `locator.dragTo()` instead; those go through a different internal path and work correctly. The adapter exposes `mouseMove` / `mouseDown` / `mouseUp` fixtures as a JS-dispatch fallback, but these only work for pages whose listeners contain no closure references and have a single `addEventListener` call per element — not reliable for typical web applications.
+- **`locator.hover()` does not activate CSS `:hover`** — the adapter's hover override dispatches `mouseover` / `mouseenter` via JavaScript, so event listeners fire but the `:hover` pseudo-class is not set (no real pointer position). Use `:focus`-driven styles or check `mouseover` event receipt rather than CSS state.
 - **Service Workers unavailable** — `navigator.serviceWorker` is `undefined` on ArkWeb; PWA / SW-based tests are not possible.
 - **Clipboard is a false positive** — `navigator.clipboard.writeText/readText` do not throw but `readText` returns `undefined`. Don't assert on clipboard contents.
 - **`emulateDevice({ isMobile: true })` does not apply the viewport** — see the note in the `emulateDevice` fixture section above.
