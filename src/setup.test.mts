@@ -87,6 +87,64 @@ describe('findBrowserPid()', () => {
   })
 })
 
+// Inline replica of the fetchDeviceState parsing logic from setup.mts.
+// Tests the separator strategy without needing a real device.
+function parseFetchDeviceState(raw: string): { ps: string; unix: string } {
+  const sepMatch = raw.match(/OHOS_SEP_\d+/)
+  if (!sepMatch) return { ps: raw, unix: '' }
+  const [ps, unix] = raw.split(sepMatch[0])
+  return { ps: ps || '', unix: unix || '' }
+}
+
+const B = 'com.huawei.hmos.browser'
+
+describe('fetchDeviceState() separator parsing', () => {
+  it('splits ps and unix at OHOS_SEP_<pid> marker', () => {
+    const raw = '1 init\n34306 ' + B + '\nOHOS_SEP_9999\nsocket-data\n'
+    const { ps, unix } = parseFetchDeviceState(raw)
+    assert.ok(ps.includes(B), 'browser in ps section')
+    assert.ok(unix.includes('socket-data'), 'socket data in unix section')
+    assert.ok(!ps.includes('socket-data'), 'socket not in ps section')
+  })
+
+  it('returns ps=raw, unix="" when marker is absent', () => {
+    const raw = '1 init\n34306 ' + B + '\n'
+    const { ps, unix } = parseFetchDeviceState(raw)
+    assert.equal(ps, raw)
+    assert.equal(unix, '')
+  })
+
+  // Regression: old static "---SOCKET---" delimiter collided with the hdc
+  // process's own ps args, which contained the literal command string
+  // (e.g. `hdc shell ps -o pid,args; echo "---SOCKET---"; cat /proc/net/unix`).
+  // The new separator uses shell $$ so ps args show the literal "$$" while
+  // the actual echo output is the numeric PID — no collision.
+  it('is not fooled by literal OHOS_SEP_$$ appearing in ps args', () => {
+    // Simulate a ps line where the hdc process shows the unexpanded shell command
+    const hdcArgsLine = '9001 hdc shell ps -o pid,args; echo "OHOS_SEP_$$"; cat /proc/net/unix'
+    // Browser main process appears AFTER the hdc process in ps output
+    const raw = hdcArgsLine + '\n34306 ' + B + '\nOHOS_SEP_9999\n@webview_devtools_remote_34306\n'
+    const { ps, unix } = parseFetchDeviceState(raw)
+    // The regex /OHOS_SEP_\d+/ does NOT match "OHOS_SEP_$$" (no digits after _)
+    // so the split happens at the correct "OHOS_SEP_9999" marker
+    assert.ok(ps.includes(B), 'browser found in ps section despite hdc args collision')
+    assert.ok(unix.includes('@webview_devtools_remote_34306'), 'socket in unix section')
+  })
+
+  it('old static delimiter would have failed — documents the bug', () => {
+    // With the old "---SOCKET---" delimiter, the hdc process in ps
+    // causes split() to cut at the WRONG position, hiding the browser.
+    const hdcArgsLine = '9001 hdc shell ps -o pid,args; echo "---SOCKET---"; cat /proc/net/unix'
+    const raw = hdcArgsLine + '\n34306 ' + B + '\n---SOCKET---\n@webview_devtools_remote_34306\n'
+    // Old logic: split on literal "---SOCKET---" — first occurrence is inside hdc args
+    const [oldPs] = raw.split('---SOCKET---')
+    assert.ok(!oldPs.includes(B), 'old delimiter: browser hidden (bug reproduced)')
+    // New logic: finds the correct marker
+    const { ps } = parseFetchDeviceState(raw.replace('---SOCKET---\n@', 'OHOS_SEP_9999\n@'))
+    assert.ok(ps.includes(B), 'new delimiter: browser found correctly')
+  })
+})
+
 const IP_PORT_RE = /^(\d{1,3}\.){3}\d{1,3}:\d+$/
 
 function parseDiscover(out: string): string[] {
