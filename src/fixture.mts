@@ -96,7 +96,9 @@ export const test = base.extend<{
       : (pages.find((p) => p.url().startsWith('http://localhost')) ?? pages[0])
     const ctxEmit = (context as unknown as { emit: (e: string, v: unknown) => void }).emit.bind(context)
 
-    // Patch baseURL
+    // Patch baseURL — save and restore to prevent wrapper accumulation across
+    // tests that share the same page object.
+    const savedGoto = (page as unknown as Record<string, unknown>)['goto'] as typeof page.goto
     const baseURL = testInfo.project.use.baseURL
     if (baseURL) {
       const root = baseURL.replace(/\/+$/, '')
@@ -189,6 +191,8 @@ export const test = base.extend<{
       if (info.openedNewTab) {
         try { await page.goto('about:blank') } catch {}
       }
+      // Restore goto to prevent wrapper accumulation across tests.
+      ;(page as unknown as { goto: unknown }).goto = savedGoto
     }
   },
 
