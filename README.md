@@ -37,24 +37,37 @@ The following Playwright APIs have been validated on ArkWeb / HarmonyOS 6.1 (Chr
 
 | Category | APIs |
 |---|---|
-| Network interception | `page.route()`, `route.fulfill()`, `route.abort()`, `page.unroute()` |
+| Network interception | `page.route()`, `context.route()`, `route.fulfill()`, `route.abort()`, `page.unroute()` — `page.route` takes priority over `context.route` |
 | Network headers | `page.setExtraHTTPHeaders()` — custom headers reach the server |
 | Network conditions | `context.setOffline(true / false)` — actually applies (`ERR_INTERNET_DISCONNECTED` ↔ reachable) |
+| Network events | `page.on('request')`, `page.on('response')`, `page.on('requestfinished')`, `page.on('requestfailed')` |
+| Network intercept wait | `page.waitForRequest()`, `page.waitForResponse()` — string URL, glob, and predicate all work |
 | Screenshot | `page.screenshot({ type: 'jpeg' \| 'png' })`, `locator.screenshot()` |
 | PDF | `page.pdf()` — Chromium-only API, implemented by ArkWeb (produces a valid `%PDF` document) |
 | Tracing | `context.tracing.start()` / `stop({ path })` — works under `connectOverCDP`; the resulting zip contains trace + screenshots + source maps |
+| Coverage | `page.coverage.startJSCoverage()` / `stopJSCoverage()`, `startCSSCoverage()` / `stopCSSCoverage()` — returns per-page entries with ranges |
 | Geolocation | `context.setGeolocation()`, `context.grantPermissions(['geolocation'])` |
 | Device emulation | `emulateDevice` fixture (see below — `isMobile: false` for a precise viewport) |
 | Input | `locator.fill()`, `locator.type()`, `keyboard.press()`, `page.selectOption()` |
+| Keyboard combos | `keyboard.press('Control+a')`, `'Shift+Tab'`, `'Control+z'`, `'Shift+ArrowRight'`, `'Alt+ArrowLeft'` — modifier combinations work |
+| Checkbox | `locator.check()`, `locator.uncheck()`, `locator.setChecked()` — disabled elements correctly rejected |
 | Drag & drop | `locator.dragTo()` — triggers a `drop` event |
+| Scroll | `page.mouse.wheel()` — scrolls correctly; `page.evaluate(() => el.scrollTo(...))` also works |
 | File upload | `page.setInputFiles()` — fires `change`, file content readable |
 | Cookies | `context.addCookies()`, `context.cookies()`, `context.clearCookies()` |
 | Dialog | `page.on('dialog')`, `dialog.accept()`, `dialog.dismiss()`, `dialog.message()`, `dialog.type()` |
 | Popup | `context.waitForEvent('page')` + `window.open()` — stub Page with `url()`, `waitForLoadState()`, `close()` |
 | Page events | `page.on('pageerror')`, `page.on('console')`, `page.on('download')` |
+| Script / style injection | `page.addScriptTag({ content \| path \| type:'module' })`, `page.addStyleTag({ content })` |
+| Init script | `page.addInitScript()` — function or string, persists across `goto()` navigations |
+| Expose to page | `page.exposeFunction()`, `page.exposeBinding()` — persists across navigations; `handle` mode not supported |
+| Navigation wait | `page.waitForURL()` — string, glob, RegExp, and `history.pushState` client-side navigation |
 | Frames | `page.frames()`, `page.mainFrame()`, `frame.url()` |
 | Viewport | `page.viewportSize()` (pre-fetched via `Page.getLayoutMetrics` for reused CDP tabs), `page.setViewportSize()` (applies precisely) |
 | Media emulation | `page.emulateMedia({ colorScheme })` |
+| Web workers | `page.workers()` — returns the list of active workers |
+| WebSocket | `page.routeWebSocket()` (requires Playwright ≥ 1.48) — intercepts WebSocket connections |
+| Accessibility (CDP) | `newCDPSession` + `Accessibility.getFullAXTree` — returns the full AX node tree |
 
 ### `emulateDevice` fixture
 
@@ -104,11 +117,12 @@ Coordinates are CSS pixels relative to the viewport (same as `touchscreen.tap`).
 - **`locator.hover()` hangs** on ArkWeb (CDP `Input.dispatchMouseEvent` mouseMoved blocks until the Playwright timeout). Use `:focus`-driven styles or a direct `click()` instead of hover-driven assertions.
 - **`page.goBack()` / `page.goForward()` hang** (CDP history navigation never resolves). Re-navigate with `page.goto()` instead.
 - **`Emulation.setUserAgentOverride` is ignored** — the command is acked but `navigator.userAgent` is unchanged. The browser UA cannot be changed via CDP.
-- **`mouse.wheel()` is a no-op** — the command succeeds but `scrollTop` stays 0. Scroll via `page.evaluate(() => el.scrollTo(...))`.
+- **`page.mouse.move()` / `page.mouse.down()` / `page.mouse.up()` do not trigger DOM element listeners** — the commands succeed without error, but `mousemove` / `mousedown` / `mouseup` handlers on target elements receive no events. Use `locator.click()` / `locator.dragTo()` instead; those go through a different internal path and work correctly.
 - **Service Workers unavailable** — `navigator.serviceWorker` is `undefined` on ArkWeb; PWA / SW-based tests are not possible.
-- **`page.workers()` returns empty** for web workers — CDP does not auto-attach worker targets. The workers themselves run fine (messages reach the main page), only the listing is affected.
 - **Clipboard is a false positive** — `navigator.clipboard.writeText/readText` do not throw but `readText` returns `undefined`. Don't assert on clipboard contents.
 - **`emulateDevice({ isMobile: true })` does not apply the viewport** — see the note in the `emulateDevice` fixture section above.
+- **`Emulation.setLocaleOverride` is ignored** — `navigator.language` stays unchanged regardless of the locale passed. Locale-sensitive formatting tests are not possible via CDP.
+- **`exposeBinding` handle mode returns `undefined`** — when `{ handle: true }` is passed, the JSHandle's `.jsonValue()` resolves to `undefined`. Use `exposeFunction` or a plain `exposeBinding` (without `handle`) instead.
 - **`process.platform` reads `'linux'`** during the run — we patch it because Playwright's hostPlatform detection only branches on linux/darwin/win32 and falls through to `<unknown>` on openharmony. For real platform checks use `process.env.OHOS_PW_HOST`.
 
 ## Environment variables
