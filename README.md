@@ -71,6 +71,8 @@ The following Playwright APIs have been validated on ArkWeb / HarmonyOS 6.1 (Chr
 | Navigation history | `page.goBack()`, `page.goForward()` — implemented via `history.back/forward()` + CDP polling; returns when the history index changes |
 | Hover events | `locator.hover()` — fires `mouseover` / `mouseenter` event listeners; CSS `:hover` pseudo-class is **not** activated (adapter uses JS dispatch, not a real pointer move) |
 | Locale (partial) | `emulateLocale(tag)` fixture — rewrites `navigator.language` / `navigator.languages` via `addInitScript`; does not affect HTTP `Accept-Language` or browser UI locale |
+| Service Workers | `navigator.serviceWorker.register()` — works on HTTPS pages; `navigator.serviceWorker` is `undefined` on non-secure origins (`data:`, `about:blank`) as in all browsers |
+| Clipboard | `navigator.clipboard.writeText()` / `readText()` — works on HTTPS pages after `context.grantPermissions(['clipboard-read', 'clipboard-write'])`; unavailable on non-secure origins |
 
 ### `emulateDevice` fixture
 
@@ -118,10 +120,8 @@ Coordinates are CSS pixels relative to the viewport (same as `touchscreen.tap`).
 - **Chromium only.** firefox and webkit aren't available on HarmonyOS.
 - **One context, one page.** `newContext()` / `newPage()` aren't supported (both throw an explicit error). Isolate tests with `localStorage.clear()` + `page.reload()`. For device emulation use the `emulateDevice` fixture instead of `browser.newContext({ ...device })`.
 - **`Emulation.setUserAgentOverride` is ignored** — the command is acked but `navigator.userAgent` is unchanged. The browser UA cannot be changed via CDP.
-- **`page.mouse.move()` / `page.mouse.down()` / `page.mouse.up()` do not trigger DOM element listeners** — the commands succeed without error, but `mousemove` / `mousedown` / `mouseup` handlers on target elements receive no events. Use `locator.click()` / `locator.dragTo()` instead; those go through a different internal path and work correctly. The adapter exposes `mouseMove` / `mouseDown` / `mouseUp` fixtures as a JS-dispatch fallback, but these only work for pages whose listeners contain no closure references and have a single `addEventListener` call per element — not reliable for typical web applications.
 - **`locator.hover()` does not activate CSS `:hover`** — the adapter's hover override dispatches `mouseover` / `mouseenter` via JavaScript, so event listeners fire but the `:hover` pseudo-class is not set (no real pointer position). Use `:focus`-driven styles or check `mouseover` event receipt rather than CSS state.
-- **Service Workers unavailable** — `navigator.serviceWorker` is `undefined` on ArkWeb; PWA / SW-based tests are not possible.
-- **Clipboard is unavailable** — `navigator.clipboard` is `undefined` on ArkWeb; clipboard read/write is not possible. Don't assert on clipboard contents.
+- **`page.mouse.move()` / `page.mouse.down()` / `page.mouse.up()` have a narrow edge case** — events reach DOM listeners correctly for typical web pages. However, if a `data:` URL with embedded newlines is used AND the same function reference is registered for multiple event types on the same element, ArkWeb's event callback routing silently fails. Prefer `locator.click()` / `locator.dragTo()` for most interactions; the `mouseMove` / `mouseDown` / `mouseUp` fixtures remain as JS-dispatch fallbacks for unusual cases.
 - **`emulateDevice({ isMobile: true })` does not apply the viewport** — see the note in the `emulateDevice` fixture section above.
 - **`Emulation.setLocaleOverride` is ignored** — the CDP command is acked but has no effect. Use the `emulateLocale` fixture instead; it rewrites `navigator.language` / `navigator.languages` via `addInitScript` (JS-layer only — HTTP `Accept-Language` and browser UI locale are unaffected).
 - **`exposeBinding` handle mode returns `undefined`** — when `{ handle: true }` is passed, the JSHandle's `.jsonValue()` resolves to `undefined`. Use `exposeFunction` or a plain `exposeBinding` (without `handle`) instead.

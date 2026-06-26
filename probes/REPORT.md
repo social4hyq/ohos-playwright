@@ -4,7 +4,7 @@
 
 **测试方法：** 68 个针对性探针 spec，覆盖 38 个能力域（4 批次累积）。每个探针用 try/catch + 超时兜底（`Promise.race` + HANG 检测），捕获**真实失败模式**（hang / throw / 错误值 / 假阳性），而非简单断言。
 
-**关键结论（v0.3.2 实测，2026-06-26，limitation fix 更新）：** 完全支持 30 项，部分支持 6 项，不支持 3 项。相比初始报告新增 3 项支持：`page.goBack/goForward`（CDP 轮询方案修复）、`locator.hover()`（JS dispatch 方案修复，但 CSS :hover 伪类不激活）、`emulateLocale` fixture（addInitScript 兜底改写 navigator.language/languages）。`page.mouse.move/down/up` 仍为已知限制。
+**关键结论（v0.3.2 实测，2026-06-26，limitation fix + HTTPS A/B 验证更新）：** 完全支持 33 项，部分支持 5 项，不支持 1 项。相比初始报告新增 5 项支持：`page.goBack/goForward`、`locator.hover()`（事件触达）、`emulateLocale` fixture、**Service Workers（HTTPS 安全上下文）**、**Clipboard write/read（HTTPS 安全上下文）**。`page.mouse.move/down/up` 从"不支持"降为窄边界场景（仅在 data: URL + 换行 + 共享函数引用组合下失败）。
 
 ---
 
@@ -77,7 +77,7 @@
 |---|---|---|
 | **newPage** | throw `Cannot read properties of undefined (reading '_page')` | 120ms |
 | **newContext** | throw 明确错误（v0.3.2 已修复假阳性，现在正确抛出） | <1ms |
-| **serviceWorker** | `navigator.serviceWorker` undefined（ArkWeb 未实现 SW） | 即时 |
+| **serviceWorker（非安全上下文）** | `navigator.serviceWorker` undefined（`data:` / `about:blank` 是非安全上下文，所有浏览器均不暴露；HTTPS 下正常工作）| 即时 |
 
 ---
 
@@ -207,8 +207,8 @@ v0.2.10 报告 `browser.newContext()` 返回空壳 context 不报错（危险假
 | 2 | `setUserAgentOverride` 被忽略 | `crPage.ts:997` `Emulation.setUserAgentOverride` | **边界情况**（ArkWeb 可能认 `Network.setUserAgentOverride`，但要换得改 core）| 加入 A/B 验证清单 |
 | 3 | `page.mouse.*` 不触发 DOM 事件 | `crInput.ts:106-157` `Input.dispatchMouseEvent` | **ArkWeb 根本性缺陷**；JS-synth fallback 已交付并文档化 | 仅文档化 |
 | 4 | `locator.hover()` 不激活 CSS `:hover` | `dom.ts:537` → 同上 crInput 路径 | **ArkWeb 根本性缺陷**（CSS `:hover` 必须真实指针位置）| 仅文档化 |
-| 5 | Service Workers undefined | `crBrowser.ts:189-235`（等 `Target.attached` 类型 `service_worker`）| **ArkWeb 根本性缺陷**（渲染端未注册 SW）| 仅文档化 |
-| 6 | Clipboard unavailable | 渲染端 `navigator.clipboard`（`crBrowser.ts:448` 授权后）| **ArkWeb 根本性缺陷**（`navigator.clipboard` 为 undefined，权限授予无效）| 仅文档化 |
+| 5 | Service Workers（非安全上下文）| `crBrowser.ts:189-235` | **判定更正**：ArkWeb 实现了 SW API；在 HTTPS 上 `navigator.serviceWorker` 可用、`register()` 返回预期 TypeError（文件不存在）而非 NotSupportedError。非安全上下文（data:/about:blank）所有浏览器均不暴露 SW | 已移至 ✅ Supported |
+| 6 | Clipboard（非安全上下文）| 渲染端 `navigator.clipboard` | **判定更正**：ArkWeb 实现了 Clipboard API；在 HTTPS + grantPermissions 下 writeText/readText 均正常工作，返回 `ok:ohos-pw-test`。非安全上下文所有浏览器均不暴露 clipboard | 已移至 ✅ Supported |
 | 7 | `isMobile:true` viewport 锁 980px | `crPage.ts:920-959` `Emulation.setDeviceMetricsOverride` | **ArkWeb 根本性缺陷**（移动 layout viewport 硬编码 980px）| 仅文档化 |
 | 8 | `setLocaleOverride` 被忽略 | `crPage.ts:1145` `Emulation.setLocaleOverride` | **ArkWeb 缺陷，adapter 部分可修** | **已修复（emulateLocale fixture）** |
 | 9 | `exposeBinding { handle: true }` undefined | `server/page.ts:1033-1046` `PageBinding.dispatch` 忽略 handle | **必须改 playwright-core**（binding dispatch 是 server 内部，adapter 拦不住）| 文档化 + 待后续计划 |
@@ -222,17 +222,28 @@ v0.2.10 报告 `browser.newContext()` 返回空壳 context 不报错（危险假
 
 **工具：** `probes/ab-baseline.spec.ts`，通过 `OHOS_PW_CDP_URL` 环境变量切换目标引擎。Chrome 腿从非 OpenHarmony 宿主执行（loader 不挂 fixture override，等价于 stock playwright）。
 
-**ArkWeb 腿实测（2026-06-26，Chromium 132 / ArkWeb 6.1.0.117）：**
+**实测对比（2026-06-26，ArkWeb 132 / Edge 149 on Windows LAN via OHOS_PW_CDP_URL）：**
 
-| 探针 | ArkWeb 结果 | Chrome 结果（预期）| 判定 |
+非安全上下文（`data:` / `about:blank`）探针：
+
+| 探针 | ArkWeb 132 | Edge 149 | 结论 |
 |---|---|---|---|
-| `navigator.userAgent` | `"Mozilla/5.0 (PC; OpenHarmony 6.1; ...) ArkWeb/6.1.0.117 ..."` | 标准 Chrome UA | ArkWeb 标识为 ArkWeb，UA 内容不同 |
-| `navigator.language` | `"zh-CN"` | 随系统 locale | 均返回有效 locale 字符串（ArkWeb 正常）|
-| `serviceWorker` | `false`（未定义）| `true` | ✅ 证实 ArkWeb 根本性缺陷（SW 未实现）|
-| `clipboard.readText` | `throw: Cannot read properties of undefined (reading 'readText')` | `typeof string`（授权后）| ✅ 证实 navigator.clipboard 在 ArkWeb 为 undefined |
-| `Input.dispatchMouseEvent` DOM 事件 | `events=""`（无事件）| `events="mousemove mousedown"`（有事件）| ✅ 证实 ArkWeb Input domain 未接 DOM 事件管线 |
+| `navigator.userAgent` | `ArkWeb/6.1.0.117...` | `Edg/149.0.0.0...` | 均正常 |
+| `navigator.language` | `zh-CN` | `zh-CN` | 均正常 |
+| `ServiceWorkerContainer`（data: URL）| `undefined` | `undefined` | ⚠️ 非安全上下文两边均不暴露，无区分度 |
+| `Clipboard`（data: URL）| `undefined` | `undefined` | ⚠️ 同上 |
+| `Input.dispatchMouseEvent`（独立内联函数）| `mousemove mousedown` ✅ | `mousemove mousedown` ✅ | 两边均可 |
 
-*Chrome 腿待在局域网 Windows Chrome 可用后补充实测数据。ArkWeb 腿已记录在 `logs/ab-arkweb.log`。*
+HTTPS 安全上下文探针（`https://www.baidu.com`）：
+
+| 探针 | ArkWeb 132 | Edge 149 | 结论 |
+|---|---|---|---|
+| `ServiceWorkerContainer` | `function` ✅ | `function` ✅ | **ArkWeb 实现了 SW API** |
+| `navigator.serviceWorker` | `true` ✅ | `true` ✅ | HTTPS 下均可访问 |
+| `sw.register()`（文件不存在）| `TypeError`（同 Edge）✅ | `TypeError` ✅ | ArkWeb SW API 工作，只是文件不存在 |
+| `clipboard.writeText+readText` | `ok:ohos-pw-test` ✅ | `ok:` (空，剪贴板隔离) | **ArkWeb clipboard 完整工作** |
+
+*ArkWeb 腿日志：`logs/ab-arkweb.log`。Edge 腿通过 `OHOS_PW_CDP_URL=http://192.168.3.60:9222` 在同一宿主运行。*
 
 ---
 
