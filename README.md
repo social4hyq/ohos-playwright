@@ -56,7 +56,7 @@ The following Playwright APIs have been validated on ArkWeb / HarmonyOS 6.1 (Chr
 | File upload | `page.setInputFiles()` — fires `change`, file content readable |
 | Cookies | `context.addCookies()`, `context.cookies()`, `context.clearCookies()` |
 | Dialog | `page.on('dialog')`, `dialog.accept()`, `dialog.dismiss()`, `dialog.message()`, `dialog.type()` |
-| Popup | `context.waitForEvent('page')` + `window.open()` — stub Page with `url()`, `waitForLoadState()`, `close()` |
+| Popup | `context.waitForEvent('page')` + `window.open()` — real Page with full API. Requires `PW_CHROMIUM_ATTACH_TO_OTHER=1`. Falls back to idle-tab proxy or minimal stub when Target.createTarget is unavailable. |
 | Page events | `page.on('pageerror')`, `page.on('console')`, `page.on('download')` |
 | Script / style injection | `page.addScriptTag({ content \| path \| type:'module' })`, `page.addStyleTag({ content })` |
 | Init script | `page.addInitScript()` — function or string, persists across `goto()` navigations |
