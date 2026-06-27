@@ -1,6 +1,7 @@
 // 探针：waitForRequest / waitForResponse
 import { test } from '@playwright/test'
 import http from 'node:http'
+import { serverHost } from './helpers.js'
 
 function startServer(): Promise<{ port: number; close: () => void }> {
   return new Promise(resolve => {
@@ -8,7 +9,7 @@ function startServer(): Promise<{ port: number; close: () => void }> {
       res.setHeader('content-type', 'text/html')
       res.end('<h1>ok</h1>')
     })
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(0, '0.0.0.0', () => {
       resolve({ port: (server.address() as any).port, close: () => server.close() })
     })
   })
@@ -17,7 +18,7 @@ function startServer(): Promise<{ port: number; close: () => void }> {
 test('waitForRequest: 捕获 goto 触发的请求', async ({ page }) => {
   const srv = await startServer()
   try {
-    const url = `http://127.0.0.1:${srv.port}/probe`
+    const url = `http://${serverHost}:${srv.port}/probe`
     const result = await Promise.race([
       Promise.all([
         page.waitForRequest(url),
@@ -36,7 +37,7 @@ test('waitForRequest: 捕获 goto 触发的请求', async ({ page }) => {
 test('waitForResponse: 捕获 goto 响应', async ({ page }) => {
   const srv = await startServer()
   try {
-    const url = `http://127.0.0.1:${srv.port}/probe2`
+    const url = `http://${serverHost}:${srv.port}/probe2`
     const result = await Promise.race([
       Promise.all([
         page.waitForResponse(url),
@@ -55,7 +56,7 @@ test('waitForResponse: 捕获 goto 响应', async ({ page }) => {
 test('waitForRequest: predicate 函数过滤', async ({ page }) => {
   const srv = await startServer()
   try {
-    const url = `http://127.0.0.1:${srv.port}/filtered`
+    const url = `http://${serverHost}:${srv.port}/filtered`
     const result = await Promise.race([
       Promise.all([
         page.waitForRequest(req => req.url().includes('/filtered')),

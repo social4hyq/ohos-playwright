@@ -1,6 +1,7 @@
 // 探针 v2：navigation 带超时兜底（goBack 在 ArkWeb 单 tab 复用下可能 hang）
 import { test, expect } from '@playwright/test'
 import http from 'node:http'
+import { serverHost } from './helpers.js'
 
 function startServer(routes: Record<string, string>): Promise<{ port: number; close: () => void }> {
   return new Promise(resolve => {
@@ -8,7 +9,7 @@ function startServer(routes: Record<string, string>): Promise<{ port: number; cl
       res.setHeader('content-type', 'text/html')
       res.end(routes[req.url!] ?? '<h1>404</h1>')
     })
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(0, '0.0.0.0', () => {
       resolve({ port: (server.address() as any).port, close: () => server.close() })
     })
   })
@@ -17,8 +18,8 @@ function startServer(routes: Record<string, string>): Promise<{ port: number; cl
 test('navigation-v2: goBack 带超时兜底', async ({ page }) => {
   const srv = await startServer({ '/a': '<h1 id=p>A</h1>', '/b': '<h1 id=p>B</h1>' })
   try {
-    await page.goto(`http://127.0.0.1:${srv.port}/a`)
-    await page.goto(`http://127.0.0.1:${srv.port}/b`)
+    await page.goto(`http://${serverHost}:${srv.port}/a`)
+    await page.goto(`http://${serverHost}:${srv.port}/b`)
     const start = Date.now()
     const backResult = await Promise.race([
       page.goBack({ timeout: 5000 }).then(() => 'ok').catch((e: any) => `err:${e.message.split('\n')[0]}`),
@@ -37,7 +38,7 @@ test('navigation-v2: goBack 带超时兜底', async ({ page }) => {
 test('navigation-v2: reload', async ({ page }) => {
   const srv = await startServer({ '/': '<input id=i>' })
   try {
-    await page.goto(`http://127.0.0.1:${srv.port}/`)
+    await page.goto(`http://${serverHost}:${srv.port}/`)
     await page.locator('#i').fill('before')
     await page.reload()
     const v = await page.inputValue('#i')

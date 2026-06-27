@@ -5,15 +5,16 @@ import { writeFileSync } from 'node:fs'
 
 // 起一个最小 HTTP server 在测试内
 import http from 'node:http'
+import { serverHost } from './helpers.js'
 
 test('localStorage: 真实 HTTP origin', async ({ page }) => {
   const server = http.createServer((req, res) => {
     res.setHeader('content-type', 'text/html')
     res.end('<html><body><script>localStorage.setItem("k","v-from-http")</script>set</body></html>')
   })
-  await new Promise<void>(r => server.listen(0, '127.0.0.1', r))
+  await new Promise<void>(r => server.listen(0, '0.0.0.0', r))
   const port = (server.address() as any).port
-  const url = `http://127.0.0.1:${port}/`
+  const url = `http://${serverHost}:${port}/`
   try {
     await page.goto(url)
     await page.waitForTimeout(300)

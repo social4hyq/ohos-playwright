@@ -16,6 +16,7 @@
 //          --config=probes/playwright.config.ts probes/ua-header-http.spec.ts
 import { test } from '@playwright/test'
 import http from 'node:http'
+import { serverHost } from './helpers.js'
 
 const FAKE_UA = 'OhosPwHeaderProbe/1.0'
 
@@ -25,7 +26,7 @@ function startEchoServer(): Promise<{ port: number; close: () => void }> {
       res.setHeader('content-type', 'application/json')
       res.end(JSON.stringify({ ua: req.headers['user-agent'] ?? '' }))
     })
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(0, '0.0.0.0', () => {
       resolve({ port: (server.address() as any).port, close: () => server.close() })
     })
   })
@@ -34,7 +35,7 @@ function startEchoServer(): Promise<{ port: number; close: () => void }> {
 async function probeUa(page: import('@playwright/test').Page, port: number): Promise<string> {
   // 直接 page.goto 让浏览器自身发起请求——避免 data: URL 的 CORS preflight 限制。
   // 服务器把收到的 User-Agent header 原样回显在 body 里。
-  await page.goto(`http://127.0.0.1:${port}/ua`)
+  await page.goto(`http://${serverHost}:${port}/ua`)
   const body = await page.evaluate(() => document.body?.innerText ?? '')
   try {
     const parsed = JSON.parse(body)

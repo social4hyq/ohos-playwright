@@ -1,6 +1,7 @@
 // 探针：goForward 带超时兜底（预期与 goBack 同样 hang）
 import { test } from '@playwright/test'
 import http from 'node:http'
+import { serverHost } from './helpers.js'
 
 function startServer(routes: Record<string, string>): Promise<{ port: number; close: () => void }> {
   return new Promise(resolve => {
@@ -8,7 +9,7 @@ function startServer(routes: Record<string, string>): Promise<{ port: number; cl
       res.setHeader('content-type', 'text/html')
       res.end(routes[req.url!] ?? '<h1>404</h1>')
     })
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(0, '0.0.0.0', () => {
       resolve({ port: (server.address() as any).port, close: () => server.close() })
     })
   })
@@ -17,8 +18,8 @@ function startServer(routes: Record<string, string>): Promise<{ port: number; cl
 test('goForward: 带超时兜底', async ({ page }) => {
   const srv = await startServer({ '/a': '<h1 id=p>A</h1>', '/b': '<h1 id=p>B</h1>' })
   try {
-    await page.goto(`http://127.0.0.1:${srv.port}/a`)
-    await page.goto(`http://127.0.0.1:${srv.port}/b`)
+    await page.goto(`http://${serverHost}:${srv.port}/a`)
+    await page.goto(`http://${serverHost}:${srv.port}/b`)
     await page.goBack({ timeout: 3000 }).catch(() => {})
     const start = Date.now()
     const result = await Promise.race([

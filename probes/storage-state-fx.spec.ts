@@ -2,6 +2,7 @@
 import { test, expect } from '@playwright/test'
 import type { StorageState } from 'ohos-playwright/fixture'
 import http from 'node:http'
+import { serverHost } from './helpers.js'
 import { writeFileSync, readFileSync } from 'node:fs'
 
 function startServer(title = 'ss') {
@@ -10,7 +11,7 @@ function startServer(title = 'ss') {
       res.setHeader('content-type', 'text/html')
       res.end(`<html><body><script>document.title="${title}"</script></body></html>`)
     })
-    server.listen(0, '127.0.0.1', () => resolve({
+    server.listen(0, '0.0.0.0', () => resolve({
       port: (server.address() as any).port,
       close: () => server.close(),
     }))
@@ -19,7 +20,7 @@ function startServer(title = 'ss') {
 
 test('storageState fixture: 保存 → 清空 → 恢复', async ({ page, context, saveStorageState, loadStorageState }) => {
   const srv = await startServer()
-  const origin = `http://127.0.0.1:${srv.port}`
+  const origin = `http://${serverHost}:${srv.port}`
   try {
     await page.goto(`${origin}/`)
     await context.addCookies([{ name: 'sess', value: 'tok', url: origin }])
@@ -59,7 +60,7 @@ test('storageState fixture: 保存 → 清空 → 恢复', async ({ page, contex
 
 test('storageState fixture: 序列化可写入文件复用', async ({ page, context, saveStorageState, loadStorageState }) => {
   const srv = await startServer('persist')
-  const origin = `http://127.0.0.1:${srv.port}`
+  const origin = `http://${serverHost}:${srv.port}`
   const statePath = '/storage/Users/currentUser/.tmp/ss-state.json'
   try {
     await page.goto(`${origin}/`)

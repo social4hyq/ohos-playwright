@@ -1,16 +1,17 @@
 // 探针：fileChooser / cacheDisabled
 import { test, expect } from '@playwright/test'
 import http from 'node:http'
+import { serverHost } from './helpers.js'
 
 test('fileChooser: page.waitForEvent(filechooser)', async ({ page }) => {
   const server = http.createServer((req, res) => {
     res.setHeader('content-type', 'text/html')
     res.end('<input id=f type=file>')
   })
-  await new Promise<void>(r => server.listen(0, '127.0.0.1', r))
+  await new Promise<void>(r => server.listen(0, '0.0.0.0', r))
   const port = (server.address() as any).port
   try {
-    await page.goto(`http://127.0.0.1:${port}/`)
+    await page.goto(`http://${serverHost}:${port}/`)
     const chooserPromise = page.waitForEvent('filechooser', { timeout: 3000 }).catch(() => null)
     await page.locator('#f').click()
     const chooser = await chooserPromise

@@ -1,6 +1,7 @@
 // 探针：context.route vs page.route 优先级与作用域
 import { test } from '@playwright/test'
 import http from 'node:http'
+import { serverHost } from './helpers.js'
 
 function startServer(): Promise<{ port: number; close: () => void }> {
   return new Promise(resolve => {
@@ -8,7 +9,7 @@ function startServer(): Promise<{ port: number; close: () => void }> {
       res.setHeader('content-type', 'application/json')
       res.end(JSON.stringify({ source: 'real-server', url: req.url }))
     })
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(0, '0.0.0.0', () => {
       resolve({ port: (server.address() as any).port, close: () => server.close() })
     })
   })
@@ -23,10 +24,10 @@ test('context.route: 拦截并 fulfill', async ({ page, context }) => {
       body: JSON.stringify({ source: 'context-mock' }),
     }))
     await page.goto(`data:text/html,<div id=o></div>`)
-    const data = await page.evaluate(async (port) => {
-      const r = await fetch(`http://127.0.0.1:${port}/api/test`)
+    const data = await page.evaluate(async ([port, host]) => {
+      const r = await fetch(`http://${host}:${port}/api/test`)
       return r.json()
-    }, srv.port)
+    }, [srv.port, serverHost] as [number, string])
     console.log(`[PROBE context-route] RESULT source=${data.source} (context-mock=ok)`)
     await context.unroute('**/api/**')
   } catch (e: any) {
@@ -48,10 +49,10 @@ test('context.route vs page.route: page 优先级更高', async ({ page, context
       body: JSON.stringify({ handler: 'page' }),
     }))
     await page.goto('data:text/html,<div id=o></div>')
-    const data = await page.evaluate(async (port) => {
-      const r = await fetch(`http://127.0.0.1:${port}/priority/test`)
+    const data = await page.evaluate(async ([port, host]) => {
+      const r = await fetch(`http://${host}:${port}/priority/test`)
       return r.json()
-    }, srv.port)
+    }, [srv.port, serverHost] as [number, string])
     console.log(`[PROBE context-route-priority] RESULT handler=${data.handler} (page=ok,context=也记录)`)
     await page.unroute('**/priority/**')
     await context.unroute('**/priority/**')
@@ -67,14 +68,14 @@ test('context.route: abort 拦截', async ({ page, context }) => {
   try {
     await context.route('**/blocked/**', route => route.abort())
     await page.goto('data:text/html,<div id=o></div>')
-    const result = await page.evaluate(async (port) => {
+    const result = await page.evaluate(async ([port, host]) => {
       try {
-        await fetch(`http://127.0.0.1:${port}/blocked/res`)
+        await fetch(`http://${host}:${port}/blocked/res`)
         return 'reachable'
       } catch {
         return 'aborted'
       }
-    }, srv.port)
+    }, [srv.port, serverHost] as [number, string])
     console.log(`[PROBE context-route-abort] RESULT result=${result} (aborted=ok)`)
     await context.unroute('**/blocked/**')
   } catch (e: any) {

@@ -1,6 +1,7 @@
 // 探针：page.on('request' / 'response' / 'requestfailed' / 'requestfinished')
 import { test } from '@playwright/test'
 import http from 'node:http'
+import { serverHost } from './helpers.js'
 
 function startServer(): Promise<{ port: number; close: () => void }> {
   return new Promise(resolve => {
@@ -9,7 +10,7 @@ function startServer(): Promise<{ port: number; close: () => void }> {
       res.setHeader('content-type', 'text/html')
       res.end('<h1>ok</h1>')
     })
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(0, '0.0.0.0', () => {
       resolve({ port: (server.address() as any).port, close: () => server.close() })
     })
   })
@@ -20,7 +21,7 @@ test('request-events: on(request) 捕获 URL', async ({ page }) => {
   const urls: string[] = []
   page.on('request', req => urls.push(req.url()))
   try {
-    await page.goto(`http://127.0.0.1:${srv.port}/`)
+    await page.goto(`http://${serverHost}:${srv.port}/`)
     await page.waitForTimeout(200)
     console.log(`[PROBE on-request] RESULT count=${urls.length} first=${urls[0]?.split('/').pop()}`)
   } finally {
@@ -33,7 +34,7 @@ test('request-events: on(response) 捕获状态码', async ({ page }) => {
   const statuses: number[] = []
   page.on('response', res => statuses.push(res.status()))
   try {
-    await page.goto(`http://127.0.0.1:${srv.port}/`)
+    await page.goto(`http://${serverHost}:${srv.port}/`)
     await page.waitForTimeout(200)
     console.log(`[PROBE on-response] RESULT statuses=${JSON.stringify(statuses)}`)
   } finally {
@@ -46,7 +47,7 @@ test('request-events: on(requestfinished) 请求完成事件', async ({ page }) 
   const finished: string[] = []
   page.on('requestfinished', req => finished.push(req.url()))
   try {
-    await page.goto(`http://127.0.0.1:${srv.port}/`)
+    await page.goto(`http://${serverHost}:${srv.port}/`)
     await page.waitForTimeout(300)
     console.log(`[PROBE on-requestfinished] RESULT count=${finished.length}`)
   } finally {
@@ -60,7 +61,7 @@ test('request-events: on(requestfailed) 连接拒绝', async ({ page }) => {
   page.on('requestfailed', req => failed.push(req.failure()?.errorText ?? 'unknown'))
   try {
     // 访问一个不存在的端口触发失败
-    await page.goto('http://127.0.0.1:1/', { timeout: 3000 }).catch(() => {})
+    await page.goto(`http://${serverHost}:1/`, { timeout: 3000 }).catch(() => {})
     await page.waitForTimeout(300)
     console.log(`[PROBE on-requestfailed] RESULT count=${failed.length} first=${failed[0] ?? 'none'}`)
   } finally {

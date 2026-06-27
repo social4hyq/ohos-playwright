@@ -1,6 +1,7 @@
 // 可行性探针：storageState 读写双向
 import { test, expect } from '@playwright/test'
 import http from 'node:http'
+import { serverHost } from './helpers.js'
 
 function startServer() {
   return new Promise<{ port: number; close: () => void }>(resolve => {
@@ -8,7 +9,7 @@ function startServer() {
       res.setHeader('content-type', 'text/html')
       res.end('<html><body><script>document.title="ok"</script></body></html>')
     })
-    server.listen(0, '127.0.0.1', () => resolve({
+    server.listen(0, '0.0.0.0', () => resolve({
       port: (server.address() as any).port,
       close: () => server.close(),
     }))
@@ -48,7 +49,7 @@ async function restoreState(page: any, context: any, state: any) {
 
 test('storageState: 读 → 清空 → 恢复 往返', async ({ page, context }) => {
   const srv = await startServer()
-  const origin = `http://127.0.0.1:${srv.port}`
+  const origin = `http://${serverHost}:${srv.port}`
   try {
     // 1. 设初始状态
     await page.goto(`${origin}/`)

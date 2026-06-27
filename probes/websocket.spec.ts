@@ -2,6 +2,7 @@
 // 使用 Node 原生 http + 手动 WebSocket 握手，无需 ws 包
 import { test } from '@playwright/test'
 import http from 'node:http'
+import { serverHost } from './helpers.js'
 import crypto from 'node:crypto'
 import net from 'node:net'
 
@@ -37,7 +38,7 @@ function startWsServer(): Promise<{ port: number; close: () => void }> {
         socket.write(frame)
       })
     })
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(0, '0.0.0.0', () => {
       resolve({ port: (server.address() as any).port, close: () => server.close() })
     })
   })
@@ -47,15 +48,15 @@ test('websocket: 真实 WS 连接（基线，无拦截）', async ({ page }) => 
   const srv = await startWsServer()
   try {
     await page.goto('data:text/html,<span id=o></span>')
-    const result = await page.evaluate(async (port) => {
+    const result = await page.evaluate(async ([port, host]) => {
       return new Promise<string>((resolve, reject) => {
-        const ws = new WebSocket(`ws://127.0.0.1:${port}`)
+        const ws = new WebSocket(`ws://${host}:${port}`)
         ws.onopen = () => ws.send('hello')
         ws.onmessage = e => { ws.close(); resolve(String(e.data)) }
         ws.onerror = () => reject('ws-error')
         setTimeout(() => reject('TIMEOUT'), 4000)
       })
-    }, srv.port)
+    }, [srv.port, serverHost] as [number, string])
     console.log(`[PROBE websocket-baseline] RESULT result=${result} (echo:hello=ok)`)
   } catch (e: any) {
     console.log(`[PROBE websocket-baseline] RESULT=error err=${String(e).split('\n')[0]}`)
@@ -71,19 +72,19 @@ test('websocket: page.routeWebSocket 拦截（Playwright >= 1.48）', async ({ p
       console.log(`[PROBE websocket-route] RESULT=skip (routeWebSocket API not available in this Playwright version)`)
       return
     }
-    await (page as any).routeWebSocket(/ws:\/\/127\.0\.0\.1/, (ws: any) => {
+    await (page as any).routeWebSocket(new RegExp(`ws://${serverHost}`), (ws: any) => {
       ws.onMessage((msg: string) => ws.send(`intercepted:${msg}`))
     })
     await page.goto('data:text/html,<span id=o></span>')
-    const result = await page.evaluate(async (port) => {
+    const result = await page.evaluate(async ([port, host]) => {
       return new Promise<string>((resolve, reject) => {
-        const ws = new WebSocket(`ws://127.0.0.1:${port}`)
+        const ws = new WebSocket(`ws://${host}:${port}`)
         ws.onopen = () => ws.send('hello')
         ws.onmessage = e => { ws.close(); resolve(String(e.data)) }
         ws.onerror = () => reject('ws-error')
         setTimeout(() => reject('TIMEOUT'), 4000)
       })
-    }, srv.port)
+    }, [srv.port, serverHost] as [number, string])
     console.log(`[PROBE websocket-route] RESULT result=${result} (intercepted:hello=ok)`)
   } catch (e: any) {
     console.log(`[PROBE websocket-route] RESULT=error err=${e.message.split('\n')[0]}`)
@@ -101,14 +102,14 @@ test('websocket: CDP Network.webSocketCreated 事件', async ({ page }) => {
     session.on('Network.webSocketClosed' as any, () => wsEvents.push('closed'))
     await (session as any).send('Network.enable')
     await page.goto('data:text/html,<span id=o></span>')
-    await page.evaluate(async (port) => {
+    await page.evaluate(async ([port, host]) => {
       return new Promise<void>(resolve => {
-        const ws = new WebSocket(`ws://127.0.0.1:${port}`)
+        const ws = new WebSocket(`ws://${host}:${port}`)
         ws.onopen = () => ws.send('ping')
         ws.onmessage = () => { ws.close(); resolve() }
         setTimeout(resolve, 3000)
       })
-    }, srv.port)
+    }, [srv.port, serverHost] as [number, string])
     await page.waitForTimeout(200)
     await session.detach()
     console.log(`[PROBE websocket-cdp-events] RESULT events=${JSON.stringify(wsEvents)}`)
