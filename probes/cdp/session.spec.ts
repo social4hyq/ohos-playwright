@@ -91,3 +91,42 @@ test('should emit close event when session is detached', async ({ page }) => {
   await client.detach()
   expect(closedSession).toBe(client)
 })
+
+// --- Tests originally depending on `server` fixture — adapted with data URLs ---
+
+test('should send events', async ({ page }) => {
+  const client = await page.context().newCDPSession(page)
+  await client.send('Network.enable')
+  const events: any[] = []
+  client.on('Network.requestWillBeSent', event => events.push(event))
+  // Adapted: server.EMPTY_PAGE → data URL
+  await page.goto('data:text/html,<html></html>')
+  // Adapted: assert at least 1 event (data URL nav may fire >1 sub-resource event)
+  expect(events.length).toBeGreaterThanOrEqual(1)
+})
+
+test('should throw if target is part of main', async ({ page }) => {
+  // Adapted: server.PREFIX + '/frames/one-frame.html' → data URL with iframe
+  await page.goto('data:text/html,<iframe src="data:text/html,frame-body"></iframe>')
+  expect(page.frames().length).toBe(2)
+  // The child iframe's URL is a data: URL — verify it loaded
+  expect(page.frames()[1].url()).toMatch(/^data:/)
+
+  const error = await page.context().newCDPSession(page.frames()[1]).catch((e: Error) => e)
+  expect(error.message).toContain(`This frame does not have a separate CDP session, it is a part of the parent frame's session`)
+})
+
+test('should emit event for each CDP event', async ({ page }) => {
+  const client = await page.context().newCDPSession(page)
+  await client.send('Network.enable')
+  const events: any[] = []
+  client.on('event', event => events.push(event))
+  // Adapted: server.EMPTY_PAGE → data URL
+  const targetUrl = 'data:text/html,<html></html>'
+  await page.goto(targetUrl)
+  expect(events.length).toBeGreaterThan(0)
+  const requestEvent = events.find(e => e.method === 'Network.requestWillBeSent')
+  expect(requestEvent).toBeTruthy()
+  // Adapted: URL is the data: URL, not server.EMPTY_PAGE
+  expect(requestEvent.params.request.url).toBe(targetUrl)
+})
