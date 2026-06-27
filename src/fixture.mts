@@ -33,6 +33,211 @@ export interface StorageState {
   origins: { origin: string; localStorage: { name: string; value: string }[] }[]
 }
 
+// Installs all ArkWeb page-level workarounds on an existing page object.
+// Returns a cleanup function; call it in the fixture's finally block.
+// opts.navigateTo: if provided, navigate there before restoring goto (use
+// 'about:blank' in single-context reuse mode to reset the shared tab).
+export type PageCleanup = (opts?: { navigateTo?: string }) => Promise<void>
+
+export async function installPageWrappers(
+  page: Page,
+  context: BrowserContext,
+  baseURL: string | undefined,
+): Promise<PageCleanup> {
+  const ctxEmit = (context as unknown as { emit: (e: string, v: unknown) => void }).emit.bind(context)
+
+  // Patch baseURL — save and restore to prevent wrapper accumulation across
+  // tests that share the same page object.
+  const savedGoto = (page as unknown as Record<string, unknown>)['goto'] as typeof page.goto
+  if (baseURL) {
+    const root = baseURL.replace(/\/+$/, '')
+    const origGoto = page.goto.bind(page)
+    page.goto = ((url: string, opts?: Record<string, unknown>) =>
+      origGoto((url.startsWith('/') && !url.startsWith('//')) ? root + url : url, opts)
+    ) as typeof page.goto
+  }
+
+  // connectOverCDP reuses an existing tab — Playwright has no record of its
+  // viewport size and viewportSize() returns null. Pre-fetch via CDP.
+  const session = await context.newCDPSession(page)
+  try {
+    try {
+      const { cssVisualViewport } = await session.send('Page.getLayoutMetrics' as 'Page.getLayoutMetrics')
+      const cached = {
+        width: Math.round((cssVisualViewport as { clientWidth: number }).clientWidth),
+        height: Math.round((cssVisualViewport as { clientHeight: number }).clientHeight),
+      }
+      const origViewportSize = page.viewportSize.bind(page)
+      page.viewportSize = () => origViewportSize() ?? cached
+    } catch {
+      // Non-critical — viewportSize() will still return null if CDP call fails.
+    }
+    // Bring the tab to foreground so Input.dispatchMouseEvent reaches DOM listeners.
+    // page.mouse.move/down/up events are silently dropped when the tab is not active.
+    try {
+      const targets = await (session as any).send('Target.getTargets')
+      const pageTarget = (targets.targetInfos as any[]).find(
+        (t: any) => t.type === 'page' && t.url === page.url()
+      )
+      if (pageTarget) {
+        await (session as any).send('Target.activateTarget', { targetId: pageTarget.targetId })
+      }
+    } catch {
+      // Non-fatal: some ArkWeb versions may not support Target.activateTarget.
+    }
+  } finally {
+    await session.detach()
+  }
+
+  // Override goBack: Page.navigateToHistoryEntry hangs in ArkWeb (never resolves).
+  // ArkWeb also does not emit Page.frameNavigated for history navigation, so waitForURL
+  // never fires. Poll Page.getNavigationHistory.currentIndex instead.
+  ;(page as any).goBack = async (options?: Parameters<typeof page.goBack>[0]) => {
+    const timeout = options?.timeout ?? 30000
+    const s = await page.context().newCDPSession(page)
+    try {
+      const nav = await (s as any).send('Page.getNavigationHistory')
+      const prevIndex = nav.currentIndex as number
+      if (prevIndex <= 0) return null
+      await page.evaluate(() => history.back())
+      const deadline = Date.now() + timeout
+      while (Date.now() < deadline) {
+        const nav2 = await (s as any).send('Page.getNavigationHistory')
+        if ((nav2.currentIndex as number) < prevIndex) break
+        await new Promise(r => setTimeout(r, 80))
+      }
+      if (Date.now() >= deadline) throw new Error(`page.goBack: Timeout ${timeout}ms exceeded`)
+    } finally {
+      await s.detach()
+    }
+    return null
+  }
+
+  // Override goForward: same root cause as goBack.
+  ;(page as any).goForward = async (options?: Parameters<typeof page.goForward>[0]) => {
+    const timeout = options?.timeout ?? 30000
+    const s = await page.context().newCDPSession(page)
+    try {
+      const nav = await (s as any).send('Page.getNavigationHistory')
+      const prevIndex = nav.currentIndex as number
+      if (prevIndex >= (nav.entries as any[]).length - 1) return null
+      await page.evaluate(() => history.forward())
+      const deadline = Date.now() + timeout
+      while (Date.now() < deadline) {
+        const nav2 = await (s as any).send('Page.getNavigationHistory')
+        if ((nav2.currentIndex as number) > prevIndex) break
+        await new Promise(r => setTimeout(r, 80))
+      }
+      if (Date.now() >= deadline) throw new Error(`page.goForward: Timeout ${timeout}ms exceeded`)
+    } finally {
+      await s.detach()
+    }
+    return null
+  }
+
+  // Override locator().hover() to bypass Playwright's internal visibility check
+  // (which can hang on ArkWeb), but still go through the real Input.dispatchMouseEvent
+  // path so the pointer position is set and CSS :hover activates. The earlier
+  // JS-dispatch workaround was disproved by the 2026-06-27 reaudit — ab-hover-css
+  // shows the native path delivers both DOM events and :hover activation.
+  const savedLocator = (page as unknown as Record<string, unknown>)['locator'] as typeof page.locator
+  const origLocator = page.locator.bind(page)
+  ;(page as any).locator = (...args: Parameters<typeof page.locator>) => {
+    const loc = origLocator(...args)
+    ;(loc as any).hover = async (_options?: Parameters<typeof loc.hover>[0]) => {
+      // Try the real Input.dispatchMouseEvent path first (activates :hover).
+      // Some pages (e.g. ones with MutationObservers that re-enter layout) can
+      // make Playwright's evaluate/boundingBox hang on ArkWeb; fall back to a
+      // JS-only dispatch with a tight timeout so hover() at least returns and
+      // DOM listeners fire.
+      const viaRealMouse = await Promise.race([
+        (async () => {
+          const box = await loc.boundingBox()
+          if (!box) return false
+          await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+          return true
+        })(),
+        new Promise<false>(r => setTimeout(() => r(false), 5000)),
+      ])
+      if (!viaRealMouse) {
+        await Promise.race([
+          loc.evaluate((el: Element) => {
+            el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }))
+          }),
+          new Promise(r => setTimeout(r, 2000)),
+        ]).catch(() => {})
+      }
+    }
+    return loc
+  }
+
+  // ArkWeb's new tab from window.open() is invisible to CDP (Target.createTarget hangs,
+  // Target.targetCreated never fires). Intercept via an init script:
+  //   - queue the URL for our poller
+  //   - return null (Window object hangs CDP serialization if returned)
+  // Guard against multiple addInitScript calls across tests accumulating overrides.
+  const origEvaluate = page.evaluate.bind(page)
+  const alreadyPatched = (page as unknown as Record<string, unknown>)['__ohosPopupPatched']
+  if (!alreadyPatched) {
+    ;(page as unknown as Record<string, unknown>)['__ohosPopupPatched'] = true
+    await page.addInitScript(() => {
+      if ((window as unknown as Record<string, unknown>)['__ohosPopupPatched']) return
+      ;(window as unknown as Record<string, unknown>)['__ohosPopupPatched'] = true
+      ;(window as unknown as Record<string, unknown>)['__ohosPopupQueue'] = [] as Array<{ url: string }>
+      window.open = (url?: string | URL) => {
+        ;(
+          (window as unknown as Record<string, unknown>)['__ohosPopupQueue'] as Array<{ url: string }>
+        ).push({ url: String(url ?? '') })
+        return null  // Window object hangs CDP serialization — return null instead
+      }
+    })
+  }
+  const popupPoller = setInterval(async () => {
+    try {
+      const pending = await origEvaluate(() => {
+        const q = (window as unknown as Record<string, unknown>)['__ohosPopupQueue'] as Array<{ url: string }>
+        ;(window as unknown as Record<string, unknown>)['__ohosPopupQueue'] = []
+        return q
+      })
+      for (const { url } of pending ?? []) {
+        // context.newPage() calls Target.createTarget which hangs in ArkWeb.
+        // Emit a minimal stub — satisfies waitForLoadState / url / close.
+        const stub = {
+          waitForLoadState: async () => {},
+          url: () => url,
+          close: async () => {},
+        }
+        ctxEmit('page', stub as unknown as import('@playwright/test').Page)
+      }
+    } catch {}
+  }, 150)
+
+  // evaluate() exceptions reject the promise but never become pageerror events
+  // (CDP catches them before they become uncaught). Intercept and re-emit.
+  // Save and restore to prevent wrapper accumulation across tests on the same page object.
+  const savedEvaluate = (page as unknown as Record<string, unknown>)['evaluate'] as typeof origEvaluate
+  ;(page as unknown as { evaluate: unknown }).evaluate = async (fn: unknown, arg?: unknown) => {
+    try {
+      return await origEvaluate(fn as Parameters<typeof origEvaluate>[0], arg as Parameters<typeof origEvaluate>[1])
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : new Error(String(e))
+      ;(page as unknown as { emit: (e: string, v: unknown) => void }).emit('pageerror', err)
+    }
+  }
+
+  return async (opts?: { navigateTo?: string }) => {
+    clearInterval(popupPoller)
+    ;(page as unknown as { evaluate: unknown }).evaluate = savedEvaluate
+    ;(page as unknown as { locator: unknown }).locator = savedLocator
+    if (opts?.navigateTo) {
+      // Reset the shared tab before restoring goto — keeps the connection alive.
+      // page.close() would terminate the ArkWeb DevTools socket.
+      try { await page.goto(opts.navigateTo) } catch {}
+    }
+    ;(page as unknown as { goto: unknown }).goto = savedGoto
+  }
+}
+
 export const test = base.extend<{
   emulateDevice: (descriptor: DeviceDescriptor) => Promise<void>
   // ArkWeb fully implements touch via CDP Input.dispatchTouchEvent, but
@@ -122,204 +327,12 @@ export const test = base.extend<{
     const page = info.openedNewTab
       ? ([...pages].reverse().find((p) => p.url() === (info.launchUrl ?? 'about:blank')) ?? pages[pages.length - 1])
       : (pages.find((p) => p.url().startsWith('http://localhost')) ?? pages[0])
-    const ctxEmit = (context as unknown as { emit: (e: string, v: unknown) => void }).emit.bind(context)
 
-    // Patch baseURL — save and restore to prevent wrapper accumulation across
-    // tests that share the same page object.
-    const savedGoto = (page as unknown as Record<string, unknown>)['goto'] as typeof page.goto
-    const baseURL = testInfo.project.use.baseURL
-    if (baseURL) {
-      const root = baseURL.replace(/\/+$/, '')
-      const origGoto = page.goto.bind(page)
-      page.goto = ((url: string, opts?: Record<string, unknown>) =>
-        origGoto((url.startsWith('/') && !url.startsWith('//')) ? root + url : url, opts)
-      ) as typeof page.goto
-    }
-
-    // connectOverCDP reuses an existing tab — Playwright has no record of its
-    // viewport size and viewportSize() returns null. Pre-fetch via CDP.
-    const session = await context.newCDPSession(page)
-    try {
-      try {
-        const { cssVisualViewport } = await session.send('Page.getLayoutMetrics' as 'Page.getLayoutMetrics')
-        const cached = {
-          width: Math.round((cssVisualViewport as { clientWidth: number }).clientWidth),
-          height: Math.round((cssVisualViewport as { clientHeight: number }).clientHeight),
-        }
-        const origViewportSize = page.viewportSize.bind(page)
-        page.viewportSize = () => origViewportSize() ?? cached
-      } catch {
-        // Non-critical — viewportSize() will still return null if CDP call fails.
-      }
-      // Bring the tab to foreground so Input.dispatchMouseEvent reaches DOM listeners.
-      // page.mouse.move/down/up events are silently dropped when the tab is not active.
-      try {
-        const targets = await (session as any).send('Target.getTargets')
-        const pageTarget = (targets.targetInfos as any[]).find(
-          (t: any) => t.type === 'page' && t.url === page.url()
-        )
-        if (pageTarget) {
-          await (session as any).send('Target.activateTarget', { targetId: pageTarget.targetId })
-        }
-      } catch {
-        // Non-fatal: some ArkWeb versions may not support Target.activateTarget.
-      }
-    } finally {
-      await session.detach()
-    }
-
-    // Override goBack: Page.navigateToHistoryEntry hangs in ArkWeb (never resolves).
-    // ArkWeb also does not emit Page.frameNavigated for history navigation, so waitForURL
-    // never fires. Poll Page.getNavigationHistory.currentIndex instead.
-    ;(page as any).goBack = async (options?: Parameters<typeof page.goBack>[0]) => {
-      const timeout = options?.timeout ?? 30000
-      const s = await page.context().newCDPSession(page)
-      try {
-        const nav = await (s as any).send('Page.getNavigationHistory')
-        const prevIndex = nav.currentIndex as number
-        if (prevIndex <= 0) return null
-        await page.evaluate(() => history.back())
-        const deadline = Date.now() + timeout
-        while (Date.now() < deadline) {
-          const nav2 = await (s as any).send('Page.getNavigationHistory')
-          if ((nav2.currentIndex as number) < prevIndex) break
-          await new Promise(r => setTimeout(r, 80))
-        }
-        if (Date.now() >= deadline) throw new Error(`page.goBack: Timeout ${timeout}ms exceeded`)
-      } finally {
-        await s.detach()
-      }
-      return null
-    }
-
-    // Override goForward: same root cause as goBack.
-    ;(page as any).goForward = async (options?: Parameters<typeof page.goForward>[0]) => {
-      const timeout = options?.timeout ?? 30000
-      const s = await page.context().newCDPSession(page)
-      try {
-        const nav = await (s as any).send('Page.getNavigationHistory')
-        const prevIndex = nav.currentIndex as number
-        if (prevIndex >= (nav.entries as any[]).length - 1) return null
-        await page.evaluate(() => history.forward())
-        const deadline = Date.now() + timeout
-        while (Date.now() < deadline) {
-          const nav2 = await (s as any).send('Page.getNavigationHistory')
-          if ((nav2.currentIndex as number) > prevIndex) break
-          await new Promise(r => setTimeout(r, 80))
-        }
-        if (Date.now() >= deadline) throw new Error(`page.goForward: Timeout ${timeout}ms exceeded`)
-      } finally {
-        await s.detach()
-      }
-      return null
-    }
-
-    // Override locator().hover() to bypass Playwright's internal visibility check
-    // (which can hang on ArkWeb), but still go through the real Input.dispatchMouseEvent
-    // path so the pointer position is set and CSS :hover activates. The earlier
-    // JS-dispatch workaround was disproved by the 2026-06-27 reaudit — ab-hover-css
-    // shows the native path delivers both DOM events and :hover activation.
-    const savedLocator = (page as unknown as Record<string, unknown>)['locator'] as typeof page.locator
-    const origLocator = page.locator.bind(page)
-    ;(page as any).locator = (...args: Parameters<typeof page.locator>) => {
-      const loc = origLocator(...args)
-      ;(loc as any).hover = async (_options?: Parameters<typeof loc.hover>[0]) => {
-        // Try the real Input.dispatchMouseEvent path first (activates :hover).
-        // Some pages (e.g. ones with MutationObservers that re-enter layout) can
-        // make Playwright's evaluate/boundingBox hang on ArkWeb; fall back to a
-        // JS-only dispatch with a tight timeout so hover() at least returns and
-        // DOM listeners fire.
-        const viaRealMouse = await Promise.race([
-          (async () => {
-            const box = await loc.boundingBox()
-            if (!box) return false
-            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-            return true
-          })(),
-          new Promise<false>(r => setTimeout(() => r(false), 5000)),
-        ])
-        if (!viaRealMouse) {
-          await Promise.race([
-            loc.evaluate((el: Element) => {
-              el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }))
-            }),
-            new Promise(r => setTimeout(r, 2000)),
-          ]).catch(() => {})
-        }
-      }
-      return loc
-    }
-
-    // ArkWeb's new tab from window.open() is invisible to CDP (Target.createTarget hangs,
-    // Target.targetCreated never fires). Intercept via an init script:
-    //   - queue the URL for our poller
-    //   - return null (Window object hangs CDP serialization if returned)
-    // Guard against multiple addInitScript calls across tests accumulating overrides.
-    const origEvaluate = page.evaluate.bind(page)
-    const alreadyPatched = (page as unknown as Record<string, unknown>)['__ohosPopupPatched']
-    if (!alreadyPatched) {
-      ;(page as unknown as Record<string, unknown>)['__ohosPopupPatched'] = true
-      await page.addInitScript(() => {
-        if ((window as unknown as Record<string, unknown>)['__ohosPopupPatched']) return
-        ;(window as unknown as Record<string, unknown>)['__ohosPopupPatched'] = true
-        ;(window as unknown as Record<string, unknown>)['__ohosPopupQueue'] = [] as Array<{ url: string }>
-        window.open = (url?: string | URL) => {
-          ;(
-            (window as unknown as Record<string, unknown>)['__ohosPopupQueue'] as Array<{ url: string }>
-          ).push({ url: String(url ?? '') })
-          return null  // Window object hangs CDP serialization — return null instead
-        }
-      })
-    }
-    const popupPoller = setInterval(async () => {
-      try {
-        const pending = await origEvaluate(() => {
-          const q = (window as unknown as Record<string, unknown>)['__ohosPopupQueue'] as Array<{ url: string }>
-          ;(window as unknown as Record<string, unknown>)['__ohosPopupQueue'] = []
-          return q
-        })
-        for (const { url } of pending ?? []) {
-          // context.newPage() calls Target.createTarget which hangs in ArkWeb.
-          // Emit a minimal stub — satisfies waitForLoadState / url / close.
-          const stub = {
-            waitForLoadState: async () => {},
-            url: () => url,
-            close: async () => {},
-          }
-          ctxEmit('page', stub as unknown as import('@playwright/test').Page)
-        }
-      } catch {}
-    }, 150)
-
-    // evaluate() exceptions reject the promise but never become pageerror events
-    // (CDP catches them before they become uncaught). Intercept and re-emit.
-    // Save and restore to prevent wrapper accumulation across tests on the same page object.
-    const savedEvaluate = (page as unknown as Record<string, unknown>)['evaluate'] as typeof origEvaluate
-    ;(page as unknown as { evaluate: unknown }).evaluate = async (fn: unknown, arg?: unknown) => {
-      try {
-        return await origEvaluate(fn as Parameters<typeof origEvaluate>[0], arg as Parameters<typeof origEvaluate>[1])
-      } catch (e: unknown) {
-        const err = e instanceof Error ? e : new Error(String(e))
-        ;(page as unknown as { emit: (e: string, v: unknown) => void }).emit('pageerror', err)
-      }
-    }
-
+    const cleanup = await installPageWrappers(page, context, testInfo.project.use.baseURL)
     try {
       await use(page)
     } finally {
-      clearInterval(popupPoller)
-      // Restore evaluate to prevent wrapper accumulation across tests.
-      ;(page as unknown as { evaluate: unknown }).evaluate = savedEvaluate
-      // Restore locator to prevent wrapper accumulation across tests.
-      ;(page as unknown as { locator: unknown }).locator = savedLocator
-      // Reset the test tab to about:blank so it's clean for the next test.
-      // page.close() sends Target.closeTarget which terminates the ArkWeb
-      // DevTools socket — use goto instead to keep the connection alive.
-      if (info.openedNewTab) {
-        try { await page.goto('about:blank') } catch {}
-      }
-      // Restore goto to prevent wrapper accumulation across tests.
-      ;(page as unknown as { goto: unknown }).goto = savedGoto
+      await cleanup({ navigateTo: info.openedNewTab ? 'about:blank' : undefined })
     }
   },
 

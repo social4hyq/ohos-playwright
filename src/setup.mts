@@ -115,10 +115,30 @@ function pickFreePort(): Promise<number> {
   })
 }
 
+function parseFportRules(lsOutput: string): { port: string; socket: string }[] {
+  const rules: { port: string; socket: string }[] = []
+  for (const line of lsOutput.split('\n')) {
+    const m = line.match(/tcp:(\d+)\s+(localabstract:\S+)/)
+    if (m) rules.push({ port: m[1], socket: m[2] })
+  }
+  return rules
+}
+
 function setupForward(port: number, socketName: string): void {
-  const ruler = `tcp:${port} localabstract:${socketName}`
-  try { hdc(['fport', 'rm', ruler]) } catch {}
-  hdc(['fport', 'tcp:' + port, 'localabstract:' + socketName])
+  // Remove all existing rules for this socket (any port) before creating a new
+  // one — prevents rule accumulation from crashed runs. hdc fport rm requires
+  // separate arguments; a single "tcp:PORT localabstract:SOCKET" string is
+  // silently ignored by hdc.
+  try {
+    const ls = hdc(['fport', 'ls'])
+    const target = `localabstract:${socketName}`
+    for (const { port: p, socket: s } of parseFportRules(ls)) {
+      if (s === target) {
+        try { hdc(['fport', 'rm', `tcp:${p}`, s]) } catch {}
+      }
+    }
+  } catch {}
+  hdc(['fport', `tcp:${port}`, `localabstract:${socketName}`])
 }
 
 interface CdpProbeResult { ok: boolean; err?: string; body?: string }
@@ -153,16 +173,6 @@ export function hasDeviceConnected(): boolean {
   return t.length > 0 && t !== '[Empty]'
 }
 
-// discoverDevices timeout reduced from 6s to 3s — LAN broadcast on local
-// network should respond within 1-2s; longer wait is unlikely to help.
-export function discoverDevices(): string[] {
-  let out = ''
-  try { out = hdc(['discover'], { timeout: 3000 }) } catch (e: unknown) {
-    out = (e as { stdout?: Buffer | string }).stdout?.toString() ?? ''
-  }
-  return out.split('\n').map(s => s.trim()).filter(s => IP_PORT_RE.test(s))
-}
-
 // 已连接时 hdc tconn 返回 "Target is connected, repeat operation"，也视作成功。
 function tconn(addr: string): boolean {
   try {
@@ -183,7 +193,6 @@ const CONNECT_HELP = [
   '  1) 进入「设置 → 关于本机」连点版本号开启「开发者选项」',
   '  2) 进入「开发者选项」启用「无线调试」',
   '  3) 确认设备与本机在同一 Wi-Fi 下',
-  '  4) 防火墙放行本机 UDP:8710 入站（hdc discover 广播用）',
   '也可手动跑 `hdc tconn <ip:port>` 后重新启动测试。',
   '若不希望自动连接，设 OHOS_PW_AUTO_CONNECT=0 跳过。',
 ].join('\n')
@@ -255,14 +264,6 @@ export async function ensureDeviceConnected(): Promise<void> {
   await selfHealHdc()
   if (hasDeviceConnected()) return
   if (tryLocalDevice()) return
-
-  console.log('[ohos-playwright] no local device, broadcasting (hdc discover)...')
-  const found = discoverDevices()
-  for (const addr of found) {
-    console.log(`[ohos-playwright] hdc tconn ${addr}`)
-    if (tconn(addr) && hasDeviceConnected()) return
-  }
-  if (found.length > 0) console.warn('[ohos-playwright] discovered devices but none connected')
 
   if (!process.stdin.isTTY) throw new Error(CONNECT_HELP)
   console.log(CONNECT_HELP)

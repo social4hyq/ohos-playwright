@@ -226,25 +226,6 @@ describe('fetchDeviceState() separator parsing', () => {
   })
 })
 
-const IP_PORT_RE = /^(\d{1,3}\.){3}\d{1,3}:\d+$/
-
-function parseDiscover(out: string): string[] {
-  return out.split('\n').map(s => s.trim()).filter(s => IP_PORT_RE.test(s))
-}
-
-describe('discoverDevices() parsing', () => {
-  it('extracts ip:port', () => {
-    assert.deepEqual(parseDiscover('192.168.1.100:5555\n192.168.1.101:5555'), ['192.168.1.100:5555', '192.168.1.101:5555'])
-  })
-  it('ignores info lines', () => {
-    assert.deepEqual(parseDiscover('[Info]firewall\n[Info]total:2\n192.168.1.100:5555'), ['192.168.1.100:5555'])
-  })
-  it('empty for no match', () => {
-    assert.deepEqual(parseDiscover('[Info]total:0'), [])
-    assert.deepEqual(parseDiscover(''), [])
-  })
-})
-
 describe('ensureHdcKey() — self-heal key generation', () => {
   let origHome: string | undefined
   let tmpHome: string

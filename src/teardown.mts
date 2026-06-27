@@ -11,10 +11,13 @@ export default async function globalTeardown(): Promise<void> {
   } catch {
     return
   }
-  const ruler = `tcp:${info.port} localabstract:${info.socket}`
+  const tcpArg = `tcp:${info.port}`
+  const sockArg = `localabstract:${info.socket}`
   try {
-    execFileSync(HDC, ['fport', 'rm', ruler], { stdio: ['ignore', 'pipe', 'pipe'] })
-    console.log(`[ohos-playwright] removed fport ${ruler}`)
+    // hdc fport rm requires separate arguments — a single combined string is
+    // silently ignored.
+    execFileSync(HDC, ['fport', 'rm', tcpArg, sockArg], { stdio: ['ignore', 'pipe', 'pipe'] })
+    console.log(`[ohos-playwright] removed fport ${tcpArg} ${sockArg}`)
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message?.split('\n')[0] : String(e)
     console.warn(`[ohos-playwright] fport rm failed (non-fatal): ${msg}`)

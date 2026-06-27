@@ -77,7 +77,7 @@ The following Playwright APIs have been validated on ArkWeb / HarmonyOS 6.1 (Chr
 
 ### `emulateDevice` fixture
 
-Because `newContext()` is not supported in connectOverCDP mode, device emulation is exposed as a Playwright fixture parameter backed by CDP `Emulation.*` commands.
+Because `newContext()` is not available in default single-context mode (see "Multi-context / multi-page" in Limitations), device emulation is exposed as a Playwright fixture parameter backed by CDP `Emulation.*` commands.
 
 ```ts
 import { test, expect } from '@playwright/test'
@@ -122,6 +122,21 @@ Coordinates are CSS pixels relative to the viewport (same as `touchscreen.tap`).
 
 - **Chromium only.** firefox and webkit aren't available on HarmonyOS.
 - **Multi-context / multi-page is opt-in.** By default the adapter intercepts `browser.newContext()` with a friendly error. The root cause: ArkWeb's `Target.createTarget` returns a target with `type: 'other'`, not `'page'`, so Playwright's `crBrowser._onAttachedToTarget` skips it and `ctx.newPage()` throws `Cannot read properties of undefined (reading '_page')`. To opt in, set `process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1'` **before** importing `@playwright/test` — Playwright's upstream escape hatch then treats `'other'` targets as pages and `browser.newContext()` / `ctx.newPage()` work normally. Trade-off: ArkWeb's internal `'other'` targets (shared workers, etc.) also get treated as pages, which can perturb tests that use `touchscreen.tap()` or `context.recordHar()`. For single-context tests (the common case) leave the env unset and isolate with `localStorage.clear()` + `page.reload()`. For device emulation use the `emulateDevice` fixture instead of `browser.newContext({ ...device })`.
+
+  **Multi-worker mode.** To run tests in parallel across multiple workers, two things are required together:
+
+  1. Set `PW_CHROMIUM_ATTACH_TO_OTHER=1` (enables `newContext()` as above).
+  2. Import `test` from `ohos-playwright/parallel` instead of `ohos-playwright`:
+
+  ```ts
+  import { test, expect } from 'ohos-playwright/parallel'
+  ```
+
+  The `ohos-playwright/parallel` fixture opens one ArkWeb context per **test** via `browser.newContext()` (test-scoped) and one page via `ctx.newPage()`. Both are closed after each test. Cookies and localStorage are fully isolated between tests. All ArkWeb workarounds (goBack/goForward, popup interception, hover, evaluate→pageerror) apply identically.
+
+  Trade-offs to be aware of:
+  - **`newContext()` serialises internally in ArkWeb.** Concurrent `newContext()` calls on the same CDP connection are safe (~100 ms for 3 at once). The apparent ~3.4 s bottleneck was from concurrent `connectOverCDP` calls (connection handshakes serialise), not context creation itself. More than ~4 workers may not yield additional throughput.
+  - **The default `ohos-playwright` fixture is not parallel-safe.** Its `context` fixture always returns `browser.contexts()[0]` — all workers would race on the same ArkWeb tab. If you set `workers > 1` with `PW_CHROMIUM_ATTACH_TO_OTHER=1` but keep the default `test` import, `withOpenHarmony()` will warn at startup.
 - **HTTP `User-Agent` header can be changed via CDP, but not via `setExtraHTTPHeaders`.** `Emulation.setUserAgentOverride` (sent by `emulateDevice({ userAgent })`) rewrites both `navigator.userAgent` and the outgoing HTTP UA header — call it before `page.goto()` so it applies to the destination page. `context.setExtraHTTPHeaders({ 'User-Agent': '...' })` does **not** override UA on ArkWeb (the header is preserved as browser default).
 - **`locator.hover()` activates CSS `:hover` on typical pages.** The fixture goes through the real `Input.dispatchMouseEvent` path via `page.mouse.move`. On pages where Playwright's `boundingBox()` hangs (e.g. some MutationObserver configurations), it falls back to a JS `mouseover` dispatch after a 5 s timeout — DOM listeners still fire but `:hover` will not activate in that fallback path.
 - **`page.mouse.move()` / `page.mouse.down()` / `page.mouse.up()` work normally.** DOM listeners receive `mousemove` / `mousedown` / `mouseup` / `click` in ArkWeb just as they do on stock Chromium. A previously documented narrow edge case (data: URL with embedded newlines AND a shared function reference registered for multiple event types) could not be reproduced in the v0.3.3 reaudit. The `mouseMove` / `mouseDown` / `mouseUp` fixtures remain in the API surface for backward compatibility but are no longer needed for normal use.
@@ -190,7 +205,7 @@ Playwright's bundled Chromium cannot exec inside the OHOS app sandbox, which bre
 
 **`defineConfig(...)` has no type hints** — set `moduleResolution` to `bundler` or `nodenext` in tsconfig.
 
-**`未发现设备` / no device found** — on the device, enable Developer Options → Wireless Debugging, make sure it's on the same Wi-Fi as the host, and allow inbound UDP:8710 (used by `hdc discover` broadcast). In CI, run `hdc tconn <ip:port>` manually before tests.
+**`未发现设备` / no device found** — on the device, enable Developer Options → Wireless Debugging and make sure it's on the same Wi-Fi as the host. In CI, run `hdc tconn <ip:port>` manually before tests.
 
 **`Failed to launch` the browser** — bundle not installed or wrong bundle name. List installed browsers with:
 
