@@ -130,3 +130,66 @@ test('should emit event for each CDP event', async ({ page }) => {
   // Adapted: URL is the data: URL, not server.EMPTY_PAGE
   expect(requestEvent.params.request.url).toBe(targetUrl)
 })
+
+// --- Tests originally using browserTest ({ browser } fixture) ---
+// These call browser.newContext() + context.newPage(), which requires
+// PW_CHROMIUM_ATTACH_TO_OTHER=1 on ArkWeb. Set before importing @playwright/test.
+
+test('should not break page.close()', async ({ browser }) => {
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  const session = await page.context().newCDPSession(page)
+  await session.detach()
+  await page.close()
+  await context.close()
+})
+
+test('should detach when page closes', async ({ browser }) => {
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  const session = await context.newCDPSession(page)
+  await page.close()
+  let error: Error | undefined
+  await session.detach().catch((e: Error) => error = e)
+  expect(error).toBeTruthy()
+  await context.close()
+})
+
+test('should reject protocol calls when page closes', async ({ browser }) => {
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  const session = await context.newCDPSession(page)
+  const promise = session.send('Runtime.evaluate', { expression: 'new Promise(() => {})', awaitPromise: true }).catch((e: Error) => e)
+  await page.close()
+  const error1 = await promise
+  expect(error1.message).toContain(kTargetClosedErrorMessage)
+  const error2 = await session.send('Runtime.evaluate', { expression: 'new Promise(() => {})', awaitPromise: true }).catch((e: Error) => e)
+  expect(error2.message).toContain('Target page, context or browser has been closed')
+  await context.close()
+})
+
+test('should emit close event when page closes', async ({ browser }) => {
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  const session = await context.newCDPSession(page)
+  const closePromise = new Promise<void>(f => session.on('close', () => f()))
+  await page.close()
+  await closePromise
+  await context.close()
+})
+
+test('should work with newBrowserCDPSession', async ({ browser }) => {
+  const session = await browser.newBrowserCDPSession()
+
+  const version = await session.send('Browser.getVersion')
+  expect(version.userAgent).toBeTruthy()
+
+  let gotEvent = false
+  session.on('Target.targetCreated', () => gotEvent = true)
+  await session.send('Target.setDiscoverTargets', { discover: true })
+  const page = await browser.newPage()
+  expect(gotEvent).toBe(true)
+  await page.close()
+
+  await session.detach()
+})
