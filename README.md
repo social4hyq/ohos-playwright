@@ -64,12 +64,16 @@ The following Playwright APIs have been validated on ArkWeb / HarmonyOS 6.1 (Chr
 | Navigation wait | `page.waitForURL()` — string, glob, RegExp, and `history.pushState` client-side navigation |
 | Frames | `page.frames()`, `page.mainFrame()`, `frame.url()` |
 | Viewport | `page.viewportSize()` (pre-fetched via `Page.getLayoutMetrics` for reused CDP tabs), `page.setViewportSize()` (applies precisely) |
-| Media emulation | `page.emulateMedia({ colorScheme })` |
+| Media emulation | `page.emulateMedia({ colorScheme, reducedMotion, forcedColors, media })` — all four options work; combine freely |
+| Visual snapshot | `expect(page).toHaveScreenshot()`, `expect(locator).toHaveScreenshot()` — use `SNAPSHOT_ENGINE=<tag>` to separate baselines when comparing ArkWeb vs another engine (both produce `*-linux.png` filenames) |
+| API request | `request` fixture (`page`-independent HTTP client), `playwright.request.newContext()` — both work |
+| Locator handler | `page.addLocatorHandler()`, `page.removeLocatorHandler()` — auto-dismisses overlays before Playwright's action retry |
+| HTTP credentials | `browser.newContext({ httpCredentials: { username, password } })` — auto-injects Basic Auth. Requires `PW_CHROMIUM_ATTACH_TO_OTHER=1`. **Note:** do not combine with `page.route()` on the same page — both use `Fetch.enable` internally and credentials will not be injected when a route is active. |
 | Web workers | `page.workers()` — returns the list of active workers |
 | WebSocket | `page.routeWebSocket()` (requires Playwright ≥ 1.48) — intercepts WebSocket connections |
 | Accessibility (CDP) | `newCDPSession` + `Accessibility.getFullAXTree` — returns the full AX node tree |
 | Navigation history | `page.goBack()`, `page.goForward()` — implemented via `history.back/forward()` + CDP polling; returns when the history index changes |
-| Hover events | `locator.hover()` — fires `mouseover` / `mouseenter` event listeners **and** activates the CSS `:hover` pseudo-class via the real `Input.dispatchMouseEvent` path. Falls back to JS-only dispatch (DOM events without `:hover`) if Playwright's `boundingBox()` hangs for more than 5 s. |
+| Hover events | `locator.hover()` — fires `mouseover` / `mouseenter` event listeners **and** activates the CSS `:hover` pseudo-class via `boundingBox()` + `page.mouse.move()` (real `Input.dispatchMouseEvent` path) |
 | Locale (partial) | `emulateLocale(tag)` fixture — rewrites `navigator.language` / `navigator.languages` via `addInitScript`; does not affect HTTP `Accept-Language` or browser UI locale |
 | User-Agent | `emulateDevice({ userAgent })` — overrides both `navigator.userAgent` and the outgoing HTTP `User-Agent` header; call before `page.goto()` for the override to take effect. (`context.setExtraHTTPHeaders({ 'User-Agent': ... })` does **not** override UA — ArkWeb preserves the browser default there.) |
 | Service Workers | `navigator.serviceWorker.register()` — works on HTTPS pages; `navigator.serviceWorker` is `undefined` on non-secure origins (`data:`, `about:blank`) as in all browsers |
@@ -132,15 +136,16 @@ Coordinates are CSS pixels relative to the viewport (same as `touchscreen.tap`).
   import { test, expect } from 'ohos-playwright/parallel'
   ```
 
-  The `ohos-playwright/parallel` fixture opens one ArkWeb context per **test** via `browser.newContext()` (test-scoped) and one page via `ctx.newPage()`. Both are closed after each test. Cookies and localStorage are fully isolated between tests. All ArkWeb workarounds (goBack/goForward, popup interception, hover, evaluate→pageerror) apply identically.
+  The `ohos-playwright/parallel` fixture opens one ArkWeb context per **test** via `browser.newContext()` (test-scoped) and one page via `ctx.newPage()`. Both are closed after each test. Cookies and localStorage are fully isolated between tests. All ArkWeb workarounds (goBack/goForward, popup interception, hover, evaluate→pageerror propagation) apply identically.
 
   Trade-offs to be aware of:
   - **`newContext()` serialises internally in ArkWeb.** Concurrent `newContext()` calls on the same CDP connection are safe (~100 ms for 3 at once). The apparent ~3.4 s bottleneck was from concurrent `connectOverCDP` calls (connection handshakes serialise), not context creation itself. More than ~4 workers may not yield additional throughput.
   - **The default `ohos-playwright` fixture is not parallel-safe.** Its `context` fixture always returns `browser.contexts()[0]` — all workers would race on the same ArkWeb tab. If you set `workers > 1` with `PW_CHROMIUM_ATTACH_TO_OTHER=1` but keep the default `test` import, `withOpenHarmony()` will warn at startup.
 - **HTTP `User-Agent` header can be changed via CDP, but not via `setExtraHTTPHeaders`.** `Emulation.setUserAgentOverride` (sent by `emulateDevice({ userAgent })`) rewrites both `navigator.userAgent` and the outgoing HTTP UA header — call it before `page.goto()` so it applies to the destination page. `context.setExtraHTTPHeaders({ 'User-Agent': '...' })` does **not** override UA on ArkWeb (the header is preserved as browser default).
-- **`locator.hover()` activates CSS `:hover` on typical pages.** The fixture goes through the real `Input.dispatchMouseEvent` path via `page.mouse.move`. On pages where Playwright's `boundingBox()` hangs (e.g. some MutationObserver configurations), it falls back to a JS `mouseover` dispatch after a 5 s timeout — DOM listeners still fire but `:hover` will not activate in that fallback path.
-- **`page.mouse.move()` / `page.mouse.down()` / `page.mouse.up()` work normally.** DOM listeners receive `mousemove` / `mousedown` / `mouseup` / `click` in ArkWeb just as they do on stock Chromium. A previously documented narrow edge case (data: URL with embedded newlines AND a shared function reference registered for multiple event types) could not be reproduced in the v0.3.3 reaudit. The `mouseMove` / `mouseDown` / `mouseUp` fixtures remain in the API surface for backward compatibility but are no longer needed for normal use.
+- **`locator.hover()` activates CSS `:hover`.** The override calls `boundingBox()` + `page.mouse.move()` (real `Input.dispatchMouseEvent` path). `page.mouse.move()` / `page.mouse.down()` / `page.mouse.up()` deliver DOM events on ArkWeb identically to stock Chromium.
 - **`emulateDevice({ isMobile: true })` does not apply the viewport** — see the note in the `emulateDevice` fixture section above.
+- **`context.recordVideo` is not supported.** ArkWeb does not implement `Page.startScreencast` (the CDP command Playwright uses for video recording). When running against a remote Chromium via `OHOS_PW_CDP_URL`, Playwright's ffmpeg binary also cannot execute on HarmonyOS without signing. Use `page.screenshot()` for visual verification instead.
+- **`launchOptions.proxy` is not applicable** in `connectOverCDP` mode — there is no launch phase where proxy settings can be injected. Use `page.route()` to intercept and rewrite requests at the Playwright layer.
 - **`exposeBinding({ handle: true })` is not supported.** Playwright 1.60's public `exposeBinding` signature is `(name, callback)` — the third `{ handle }` argument is silently ignored. The callback receives a serialized form of the argument (DOM nodes arrive as the string `"ref: <Node>"`), not a JSHandle. Use `exposeFunction` or a plain `exposeBinding` callback that reads element properties directly and returns a by-value object.
 - **`process.platform` reads `'linux'`** during the run — Playwright's `calculatePlatform()` only branches on linux/darwin/win32 (falls through to `<unknown>` on openharmony), and 20+ other sites in `playwright-core` read `process.platform` directly (UA string assembly, headful window insets, modifier keys, registry). The adapter patches `process.platform` to `'linux'` and pins `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-arm64` for `calculatePlatform()`. For real platform checks use `process.env.OHOS_PW_HOST`.
 
@@ -219,7 +224,7 @@ Then set `OHOS_PW_BUNDLE` (e.g. `OHOS_PW_BUNDLE=com.quark.ohosbrowser`).
 
 **`CDP probe failed`** — leftover `hdc` forward rule from a prior crashed run. `hdc fport ls` to inspect, `hdc fport rm tcp:<port> localabstract:<socket>` to clear.
 
-**`page.goto('/foo')` doesn't prepend baseURL** — Playwright's standard behavior is `/foo` → `http://localhost:5173/foo`. If it's not working, check `use.baseURL` in `playwright.config.ts`.
+**`page.goto('/foo')` doesn't prepend baseURL** — Playwright's standard behavior is `/foo` → `http://localhost:5173/foo`. The adapter injects `baseURL` directly into the context's internal options so Playwright's own URL resolution applies. If it's not working, verify `use.baseURL` is set in `playwright.config.ts` and that `withOpenHarmony()` wraps the config.
 
 ## License
 
