@@ -369,3 +369,55 @@ cd /storage/Users/currentUser/HarmonyPC/Software/ohos-playwright
 
 完整原始日志：
 - `logs/probes-run4-b1.log` / `b2.log` / `b3.log` / `b4.log`（2026-06-26 v0.3.2 实测）
+
+---
+
+## 第五批：跨引擎 A/B 覆盖补全（v0.3.5，2026-06-27）
+
+**目标**：验证此前未覆盖的 API 域——`toHaveScreenshot`、`APIRequestContext`、`addLocatorHandler`、`httpCredentials`、`proxy`、`emulateMedia` 全选项、`context.recordVideo`。双腿对比：ArkWeb（本机 132）+ Edge（Windows 149）。
+
+### 结果汇总
+
+| 探针 | ArkWeb | Edge | 说明 |
+|---|---|---|---|
+| `ab-visual-screenshot` | ✅ 3/3 | ✅ 3/3 | `toHaveScreenshot` / 元素截图 / buffer 非空均通过。需 `SNAPSHOT_ENGINE=arkweb/edge` 区分基线目录（platform shim 导致两引擎用相同文件名 `*-linux.png`）|
+| `ab-api-request` | ✅ 3/3 | ✅ 3/3 | `request` fixture GET/POST、`playwright.request.newContext()` 独立上下文均通过。服务端运行在 Node.js（test runner），与浏览器解耦 |
+| `ab-locator-handler` | ✅ 2/2 | ✅ 2/2 | `page.addLocatorHandler()` 自动 dismiss overlay 正常工作；`removeLocatorHandler` 后不再触发 |
+| `ab-emulate-media-full` | ✅ 8/8 | ✅ 8/8 | `reducedMotion` / `forcedColors` / `media` / `colorScheme` + 组合均生效；各个 `@media` 查询返回正确值 |
+| `ab-proxy` | ✅ 3/3 | ✅ 3/3 | `page.route() fulfill`（代理拦截）/ `route.continue` 等效（modify header）均通过。`launchOptions.proxy` 已记录不支持（CDP attach 无 launch 阶段）|
+| `ab-http-credentials` | ✅ 2/2 | ✅ 2/2 | ArkWeb：with-creds `status=200 authed=true`，no-creds `status=401`。Edge：with-creds `status=200 authed=true`，no-creds `ERR_INVALID_AUTH_CREDENTIALS`（Edge 弹 auth dialog 而非返回 401，行为差异已记录）|
+| `ab-video-context` | ✅ 2/2 | ✅ 2/2 | `page.video() is null without recordVideo` 两引擎均通过。`recordVideo` 均不完整支持：ArkWeb = `"Video recording has not been started."`（ArkWeb 不实现 `Page.startScreencast`）；Edge = ffmpeg `EACCES`（HarmonyOS 执行 ffmpeg-linux 需签名）|
+
+### 关键发现
+
+**httpCredentials + page.route() 冲突**：两者底层都调用 `Fetch.enable`，同时使用时凭据注入失效（auth 字段为空）。探针改用真实 HTTP server（`0.0.0.0`）避免冲突；跨机 Edge 场景浏览器用 HarmonyOS LAN IP `172.16.100.1` 访问。
+
+**Edge 跨机 Basic Auth 行为**：Edge 在无凭据时收到 401 + `WWW-Authenticate` 后，会弹出凭据对话框，Playwright 捕获为 `ERR_INVALID_AUTH_CREDENTIALS`（thrown）而非 response status=401。ArkWeb 则直接返回 status=401 响应对象。
+
+**context.recordVideo 不可用于生产**：
+- ArkWeb：CDP `Page.startScreencast` 未实现
+- Edge via HarmonyOS runner：ffmpeg 二进制需 HarmonyOS 签名才可执行（`EACCES`）
+
+**跨引擎 A/B 基线隔离**：`process.platform = 'linux'` shim（`src/register.mts`）导致两引擎截图基线文件名相同（`*-linux.png`）。用 `SNAPSHOT_ENGINE=arkweb/edge` + `probes/playwright.config.ts` 中的 `snapshotDir` 分离。
+
+**ctx.close() / browser.close() 在 connectOverCDP 模式下可能 hang**：原始 CDP attach 探针（`ab-http-credentials`、`ab-video-context`）需用 `Promise.race(..., timeout)` 包裹关闭操作，否则 Edge 场景 30s 超时。
+
+### 运行命令
+
+```bash
+# ArkWeb
+OHOS_PW_HOST=1 PW_CHROMIUM_ATTACH_TO_OTHER=1 ./dist/cli.mjs test \
+  --config=probes/playwright.config.ts \
+  probes/ab-visual-screenshot.spec.ts probes/ab-api-request.spec.ts \
+  probes/ab-locator-handler.spec.ts probes/ab-emulate-media-full.spec.ts \
+  probes/ab-proxy.spec.ts probes/ab-http-credentials.spec.ts \
+  probes/ab-video-context.spec.ts
+
+# Edge
+OHOS_PW_CDP_URL=http://172.16.100.2:9222 PW_CHROMIUM_ATTACH_TO_OTHER=1 ./dist/cli.mjs test \
+  --config=probes/playwright.config.ts \
+  probes/ab-visual-screenshot.spec.ts probes/ab-api-request.spec.ts \
+  probes/ab-locator-handler.spec.ts probes/ab-emulate-media-full.spec.ts \
+  probes/ab-proxy.spec.ts probes/ab-http-credentials.spec.ts \
+  probes/ab-video-context.spec.ts
+```
