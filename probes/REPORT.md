@@ -426,19 +426,19 @@ OHOS_PW_CDP_URL=http://172.16.100.2:9222 PW_CHROMIUM_ATTACH_TO_OTHER=1 ./dist/cl
 
 ## 第六批：Phase 2 条件性探针（v0.5.0，2026-06-27）
 
-**目标**：验证 `fixture.mts` 三处 workaround 在 ArkWeb / Edge 现状下是否仍然必要。ArkWeb 双腿均验证；Edge（172.16.100.2）因网络中断在本批次不可达（HTTP timeout）——早先同会话 Edge 数据补充说明。
+**目标**：验证 `fixture.mts` 三处 workaround 在 ArkWeb / Edge 现状下是否仍然必要。ArkWeb + Edge（149）双腿均验证。
 
 ### 结果汇总
 
 | 探针 | ArkWeb | Edge | 决策 |
 |---|---|---|---|
-| `ab-newcontext-cookies` | ✅ 1/1 `newContext=ok cookies=ok storage=ok newPage=throw:_page` | 机器离线（网络中断） | **已删除 newContext 拦截**（v0.5.0 BREAKING） |
-| `ab-pageerror` | ✅ 2/2 `native-fired=false` / `with-wrapper-fired=true` | 机器离线 | **保留 wrapper**（CDP 不转发 evaluate 异常为 pageerror） |
-| `ab-locale-cdp` | ✅ 2/2 `matches=false CDP ignored` / `initScript matches=true` | 早先验证 `matches=false`（同结论） | **保留 emulateLocale fixture**（CDP 命令被 ArkWeb 忽略） |
+| `ab-newcontext-cookies` | ✅ 1/1 `newContext=ok cookies=ok storage=ok newPage=throw:_page` | ✅ 1/1 `newContext=ok cookies=ok storage=ok newPage=ok(text="ok")` | **已删除 newContext 拦截**（v0.5.0 BREAKING）|
+| `ab-pageerror` | ✅ 2/2 `native-fired=false` / `with-wrapper-fired=true` | ✅ 2/2 `native-fired=false` / `with-wrapper-fired=true` | **保留 wrapper**（两引擎均不转发 evaluate 异常为 pageerror）|
+| `ab-locale-cdp` | ✅ 2/2 `matches=false CDP ignored` / `initScript matches=true` | ✅ 2/2 `matches=false CDP ignored` / `initScript matches=true` | **保留 emulateLocale fixture**（两引擎 CDP 命令均被忽略）|
 
 ### 关键发现
 
-**newContext 拦截已不必要（删除）**：探针证明 `browser.newContext()` + `addCookies` / `storageState()` 在 connectOverCDP 模式下无需 `PW_CHROMIUM_ATTACH_TO_OTHER` 即可工作。受限的是 `ctx.newPage()`（ArkWeb 返回 `type='other'` 目标导致 `_page undefined`），而非 `newContext()` 本身。移除拦截后用户得到 Playwright 的自然错误而非 ohos-playwright 的友好消息。
+**newContext 拦截已不必要（删除）**：探针证明 `browser.newContext()` + `addCookies` / `storageState()` 在 connectOverCDP 模式下无需 `PW_CHROMIUM_ATTACH_TO_OTHER` 即可工作。受限的是 `ctx.newPage()`，仅在 ArkWeb 上失败（`type='other'` 目标导致 `_page undefined`）；Edge 的 `ctx.newPage()` 无需额外设置即可正常工作。移除拦截后 ArkWeb 用户在调 `newPage()` 时得到 Playwright 的自然错误，Edge 用户不受影响。
 
 **evaluate wrapper 仍需保留**：ArkWeb CDP 将 `evaluate()` 内的 `throw` 处理为 Promise rejection，不触发 `Runtime.exceptionThrown` / `pageerror` 事件。`addScriptTag` 注入的窗口级 uncaught error 则正常触发 pageerror，说明 ArkWeb 的 `Runtime.exceptionThrown` 本身正常，只是 evaluate 的异常路径有别于浏览器原生执行。
 
@@ -451,8 +451,14 @@ OHOS_PW_CDP_URL=http://172.16.100.2:9222 PW_CHROMIUM_ATTACH_TO_OTHER=1 ./dist/cl
 ### 运行命令
 
 ```bash
-# ArkWeb（全部通过）
+# ArkWeb
 OHOS_PW_HOST=1 ./dist/cli.mjs test --config=probes/playwright.config.ts \
+  probes/ab-newcontext-cookies.spec.ts probes/ab-pageerror.spec.ts \
+  probes/ab-locale-cdp.spec.ts
+
+# Edge
+OHOS_PW_CDP_URL=http://172.16.100.2:9222 ./dist/cli.mjs test \
+  --config=probes/playwright.config.ts \
   probes/ab-newcontext-cookies.spec.ts probes/ab-pageerror.spec.ts \
   probes/ab-locale-cdp.spec.ts
 ```
