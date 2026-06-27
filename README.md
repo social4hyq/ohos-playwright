@@ -68,7 +68,7 @@ The following Playwright APIs have been validated on ArkWeb / HarmonyOS 6.1 (Chr
 | Visual snapshot | `expect(page).toHaveScreenshot()`, `expect(locator).toHaveScreenshot()` — use `SNAPSHOT_ENGINE=<tag>` to separate baselines when comparing ArkWeb vs another engine (both produce `*-linux.png` filenames) |
 | API request | `request` fixture (`page`-independent HTTP client), `playwright.request.newContext()` — both work |
 | Locator handler | `page.addLocatorHandler()`, `page.removeLocatorHandler()` — auto-dismisses overlays before Playwright's action retry |
-| HTTP credentials | `browser.newContext({ httpCredentials: { username, password } })` — auto-injects Basic Auth. Requires `PW_CHROMIUM_ATTACH_TO_OTHER=1`. **Note:** do not combine with `page.route()` on the same page — both use `Fetch.enable` internally and credentials will not be injected when a route is active. |
+| HTTP credentials | `browser.newContext({ httpCredentials: { username, password } })` — auto-injects Basic Auth. `ctx.newPage()` requires `PW_CHROMIUM_ATTACH_TO_OTHER=1`; cookie/storage operations work without it. **Note:** do not combine with `page.route()` on the same page — both use `Fetch.enable` internally and credentials will not be injected when a route is active. |
 | Web workers | `page.workers()` — returns the list of active workers |
 | WebSocket | `page.routeWebSocket()` (requires Playwright ≥ 1.48) — intercepts WebSocket connections |
 | Accessibility (CDP) | `newCDPSession` + `Accessibility.getFullAXTree` — returns the full AX node tree |
@@ -81,7 +81,7 @@ The following Playwright APIs have been validated on ArkWeb / HarmonyOS 6.1 (Chr
 
 ### `emulateDevice` fixture
 
-Because `newContext()` is not available in default single-context mode (see "Multi-context / multi-page" in Limitations), device emulation is exposed as a Playwright fixture parameter backed by CDP `Emulation.*` commands.
+Because `ctx.newPage()` requires `PW_CHROMIUM_ATTACH_TO_OTHER=1` (see "Multi-context" in Limitations), device emulation is exposed as a Playwright fixture parameter backed by CDP `Emulation.*` commands.
 
 ```ts
 import { test, expect } from '@playwright/test'
@@ -125,7 +125,9 @@ Coordinates are CSS pixels relative to the viewport (same as `touchscreen.tap`).
 ## Limitations
 
 - **Chromium only.** firefox and webkit aren't available on HarmonyOS.
-- **Multi-context / multi-page is opt-in.** By default the adapter intercepts `browser.newContext()` with a friendly error. The root cause: ArkWeb's `Target.createTarget` returns a target with `type: 'other'`, not `'page'`, so Playwright's `crBrowser._onAttachedToTarget` skips it and `ctx.newPage()` throws `Cannot read properties of undefined (reading '_page')`. To opt in, set `process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1'` **before** importing `@playwright/test` — Playwright's upstream escape hatch then treats `'other'` targets as pages and `browser.newContext()` / `ctx.newPage()` work normally. Trade-off: ArkWeb's internal `'other'` targets (shared workers, etc.) also get treated as pages, which can perturb tests that use `touchscreen.tap()` or `context.recordHar()`. For single-context tests (the common case) leave the env unset and isolate with `localStorage.clear()` + `page.reload()`. For device emulation use the `emulateDevice` fixture instead of `browser.newContext({ ...device })`.
+- **`browser.newContext()` works; `ctx.newPage()` requires opt-in.** `browser.newContext()` is available without any opt-in — use it freely for `addCookies` / `storageState()` / `clearCookies()`. However, `ctx.newPage()` on ArkWeb throws Playwright's natural `Cannot read properties of undefined (reading '_page')` because ArkWeb's `Target.createTarget` returns `type: 'other'` (not `'page'`), causing Playwright's `crBrowser._onAttachedToTarget` to skip the new target. To opt in to full `ctx.newPage()` support, set `process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1'` **before** importing `@playwright/test` — Playwright's upstream escape hatch then treats `'other'` targets as pages. Trade-off: ArkWeb's internal `'other'` targets (shared workers, etc.) also get treated as pages, which can perturb tests that use `touchscreen.tap()` or `context.recordHar()`. For single-context tests (the common case) leave the env unset and isolate with `localStorage.clear()` + `page.reload()`. For device emulation use the `emulateDevice` fixture instead of `browser.newContext({ ...device })`.
+
+  > **v0.5.0 breaking change:** Previously `browser.newContext()` threw a friendly error when `PW_CHROMIUM_ATTACH_TO_OTHER` was unset. Now it succeeds for cookie/storage operations; `ctx.newPage()` will throw Playwright's natural `_page undefined` error instead.
 
   **Multi-worker mode.** To run tests in parallel across multiple workers, two things are required together:
 
