@@ -79,8 +79,16 @@ export async function createPopupPage(
     if (!newPage) return null
 
     // Navigate to the popup URL (skip for about:blank which is already loaded).
+    // On navigation failure, close the tab and return null — otherwise a
+    // half-loaded popup tab (url stuck at about:blank) gets mistaken for the
+    // launchUrl tab by the next test's fixture-page selector.
     if (popupUrl && popupUrl !== 'about:blank') {
-      await newPage.goto(popupUrl, { timeout: 5000 }).catch(() => {})
+      try {
+        await newPage.goto(popupUrl, { timeout: 5000 })
+      } catch {
+        await newPage.close().catch(() => {})
+        return null
+      }
     }
     return newPage
   } catch {
