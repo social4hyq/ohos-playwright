@@ -217,30 +217,11 @@ export const test = base.extend<{
   browser: [
     async ({}, use: (b: Browser) => Promise<void>) => {
       const browser = await chromium.connectOverCDP(readEndpoint())
-      // ArkWeb's Target.createTarget returns type='other', so Playwright's
-      // crBrowser._onAttachedToTarget skips it and ctx.newPage() throws
-      // "Cannot read properties of undefined (reading '_page')". The upstream
-      // PW_CHROMIUM_ATTACH_TO_OTHER=1 escape hatch fixes newContext/newPage
-      // but also makes Playwright treat internal "other" targets as pages
-      // (perturbs touchscreen / recordHar). When the user has not opted in,
-      // intercept browser.newContext() with a friendly, actionable error.
-      if (!process.env.PW_CHROMIUM_ATTACH_TO_OTHER) {
-        const origNewContext = browser.newContext.bind(browser) as Browser['newContext']
-        ;(browser as unknown as { newContext: Browser['newContext'] }).newContext = (() => {
-          throw new Error(
-            'browser.newContext() is not supported on ArkWeb unless you opt in via ' +
-            'process.env.PW_CHROMIUM_ATTACH_TO_OTHER=\'1\' before importing @playwright/test. ' +
-            'See ohos-playwright README "Limitations" → "Multi-context" for trade-offs.',
-          )
-        }) as Browser['newContext']
-        try {
-          await use(browser)
-        } finally {
-          ;(browser as unknown as { newContext: Browser['newContext'] }).newContext = origNewContext
-        }
-      } else {
-        await use(browser)
-      }
+      // browser.newContext() + addCookies / storageState() work in connectOverCDP mode.
+      // ctx.newPage() requires PW_CHROMIUM_ATTACH_TO_OTHER=1 on ArkWeb (Target.createTarget
+      // returns type='other' so Playwright skips the new target); without it Playwright
+      // throws its natural "_page undefined" error.
+      await use(browser)
     },
     { scope: 'worker' as const },
   ],
