@@ -65,6 +65,18 @@ export async function installPageWrappers(
     await session.detach()
   }
 
+  // Override goto: connectOverCDP creates the server-side context with no baseURL in
+  // its _options, so Playwright's internal Frame.goto cannot resolve relative paths —
+  // CDP rejects them as invalid. Resolve here before delegating to the real goto.
+  const savedGoto = (page as unknown as Record<string, unknown>)['goto'] as typeof page.goto
+  const origGoto = page.goto.bind(page)
+  ;(page as any).goto = async (url: string, options?: Parameters<typeof page.goto>[1]) => {
+    if (baseURL && url && !url.includes('://') && !url.startsWith('about:') && !url.startsWith('data:')) {
+      url = new URL(url, baseURL).toString()
+    }
+    return origGoto(url, options)
+  }
+
   // Override goBack: Page.navigateToHistoryEntry hangs in ArkWeb (never resolves).
   // ArkWeb also does not emit Page.frameNavigated for history navigation, so waitForURL
   // never fires. Poll Page.getNavigationHistory.currentIndex instead.
@@ -185,6 +197,7 @@ export async function installPageWrappers(
     clearInterval(popupPoller)
     ;(page as unknown as { evaluate: unknown }).evaluate = savedEvaluate
     ;(page as unknown as { locator: unknown }).locator = savedLocator
+    ;(page as unknown as { goto: unknown }).goto = savedGoto
     if (opts?.navigateTo) {
       // Reset the shared tab to a neutral state — page.close() would terminate
       // the ArkWeb DevTools socket so we navigate instead.
