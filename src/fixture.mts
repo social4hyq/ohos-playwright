@@ -39,6 +39,57 @@ export interface StorageState {
 // 'about:blank' in single-context reuse mode to reset the shared tab).
 export type PageCleanup = (opts?: { navigateTo?: string }) => Promise<void>
 
+// Create a real Page in the default context via Target.createTarget.
+// Returns the new page (already navigated to popupUrl) on success, or null
+// to let the caller fall back to idle-tab proxy or stub.
+//
+// Precondition: PW_CHROMIUM_ATTACH_TO_OTHER=1 must be set, otherwise the new
+// target created by ArkWeb will be type:'other' and Playwright won't pick
+// it up into ctx.pages().
+export async function createPopupPage(
+  context: BrowserContext,
+  seedPage: Page,
+  popupUrl: string,
+): Promise<Page | null> {
+  let session: import('@playwright/test').CDPSession | null = null
+  try {
+    session = await context.newCDPSession(seedPage)
+    const r = await Promise.race([
+      (session as unknown as { send: (cmd: string, args?: unknown) => Promise<unknown> })
+        .send('Target.createTarget', { url: 'about:blank' }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('createTarget timeout')), 3000)),
+    ]) as { targetId?: string }
+    if (!r.targetId) return null
+
+    // Poll ctx.pages() until Playwright picks up the new target (max 2s).
+    const pagesBefore = context.pages().length
+    const deadline = Date.now() + 2000
+    while (Date.now() < deadline) {
+      if (context.pages().length > pagesBefore) break
+      await new Promise((r) => setTimeout(r, 50))
+    }
+    const allPages = context.pages()
+    if (allPages.length <= pagesBefore) return null
+
+    // Pick the newly-added page (any page not equal to seedPage, preferring
+    // about:blank which is the createTarget's initial URL).
+    const newPage =
+      allPages.find((p) => p !== seedPage && p.url() === 'about:blank') ??
+      allPages.find((p) => p !== seedPage)
+    if (!newPage) return null
+
+    // Navigate to the popup URL (skip for about:blank which is already loaded).
+    if (popupUrl && popupUrl !== 'about:blank') {
+      await newPage.goto(popupUrl, { timeout: 5000 }).catch(() => {})
+    }
+    return newPage
+  } catch {
+    return null
+  } finally {
+    if (session) await session.detach().catch(() => {})
+  }
+}
+
 export async function installPageWrappers(
   page: Page,
   context: BrowserContext,
@@ -168,14 +219,36 @@ export async function installPageWrappers(
         return q
       })
       for (const { url } of pending ?? []) {
-        // context.newPage() calls Target.createTarget which hangs in ArkWeb.
-        // Emit a minimal stub — satisfies waitForLoadState / url / close.
-        const stub = {
-          waitForLoadState: async () => {},
-          url: () => url,
-          close: async () => {},
+        // 1) Target.createTarget（首选）
+        let emitted: Page | null = null
+        try {
+          emitted = await createPopupPage(context, page, url || 'about:blank')
+        } catch {}
+        // 2) Fallback A：默认 context 闲置 about:blank tab
+        if (!emitted) {
+          const idle = context
+            .pages()
+            .find((p) => p !== page && p.url() === 'about:blank')
+          if (idle) {
+            try {
+              if (url && url !== 'about:blank') {
+                await idle.goto(url, { timeout: 5000 })
+              }
+              emitted = idle
+            } catch {}
+          }
         }
-        ctxEmit('page', stub as unknown as import('@playwright/test').Page)
+        // 3) Fallback B：退回原 stub（保持兼容）
+        if (!emitted) {
+          const stub = {
+            waitForLoadState: async () => {},
+            url: () => url,
+            close: async () => {},
+          }
+          ctxEmit('page', stub as unknown as Page)
+        } else {
+          ctxEmit('page', emitted)
+        }
       }
     } catch {}
   }, 150)
