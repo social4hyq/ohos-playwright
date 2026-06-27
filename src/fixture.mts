@@ -46,17 +46,6 @@ export async function installPageWrappers(
 ): Promise<PageCleanup> {
   const ctxEmit = (context as unknown as { emit: (e: string, v: unknown) => void }).emit.bind(context)
 
-  // Patch baseURL — save and restore to prevent wrapper accumulation across
-  // tests that share the same page object.
-  const savedGoto = (page as unknown as Record<string, unknown>)['goto'] as typeof page.goto
-  if (baseURL) {
-    const root = baseURL.replace(/\/+$/, '')
-    const origGoto = page.goto.bind(page)
-    page.goto = ((url: string, opts?: Record<string, unknown>) =>
-      origGoto((url.startsWith('/') && !url.startsWith('//')) ? root + url : url, opts)
-    ) as typeof page.goto
-  }
-
   // connectOverCDP reuses an existing tab — Playwright has no record of its
   // viewport size and viewportSize() returns null. Pre-fetch via CDP.
   const session = await context.newCDPSession(page)
@@ -71,19 +60,6 @@ export async function installPageWrappers(
       page.viewportSize = () => origViewportSize() ?? cached
     } catch {
       // Non-critical — viewportSize() will still return null if CDP call fails.
-    }
-    // Bring the tab to foreground so Input.dispatchMouseEvent reaches DOM listeners.
-    // page.mouse.move/down/up events are silently dropped when the tab is not active.
-    try {
-      const targets = await (session as any).send('Target.getTargets')
-      const pageTarget = (targets.targetInfos as any[]).find(
-        (t: any) => t.type === 'page' && t.url === page.url()
-      )
-      if (pageTarget) {
-        await (session as any).send('Target.activateTarget', { targetId: pageTarget.targetId })
-      }
-    } catch {
-      // Non-fatal: some ArkWeb versions may not support Target.activateTarget.
     }
   } finally {
     await session.detach()
@@ -135,38 +111,18 @@ export async function installPageWrappers(
     return null
   }
 
-  // Override locator().hover() to bypass Playwright's internal visibility check
-  // (which can hang on ArkWeb), but still go through the real Input.dispatchMouseEvent
-  // path so the pointer position is set and CSS :hover activates. The earlier
-  // JS-dispatch workaround was disproved by the 2026-06-27 reaudit — ab-hover-css
-  // shows the native path delivers both DOM events and :hover activation.
+  // Override locator().hover() to use page.mouse.move() directly so CSS :hover
+  // activates. Playwright's built-in hover() goes through a visibility check path
+  // that can hang on ArkWeb; bypassing it is safe because mouse.move() has been
+  // verified to deliver both DOM events and :hover activation (ab-hover-css probe).
   const savedLocator = (page as unknown as Record<string, unknown>)['locator'] as typeof page.locator
   const origLocator = page.locator.bind(page)
   ;(page as any).locator = (...args: Parameters<typeof page.locator>) => {
     const loc = origLocator(...args)
     ;(loc as any).hover = async (_options?: Parameters<typeof loc.hover>[0]) => {
-      // Try the real Input.dispatchMouseEvent path first (activates :hover).
-      // Some pages (e.g. ones with MutationObservers that re-enter layout) can
-      // make Playwright's evaluate/boundingBox hang on ArkWeb; fall back to a
-      // JS-only dispatch with a tight timeout so hover() at least returns and
-      // DOM listeners fire.
-      const viaRealMouse = await Promise.race([
-        (async () => {
-          const box = await loc.boundingBox()
-          if (!box) return false
-          await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-          return true
-        })(),
-        new Promise<false>(r => setTimeout(() => r(false), 5000)),
-      ])
-      if (!viaRealMouse) {
-        await Promise.race([
-          loc.evaluate((el: Element) => {
-            el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }))
-          }),
-          new Promise(r => setTimeout(r, 2000)),
-        ]).catch(() => {})
-      }
+      const box = await loc.boundingBox()
+      if (!box) return
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
     }
     return loc
   }
@@ -230,11 +186,10 @@ export async function installPageWrappers(
     ;(page as unknown as { evaluate: unknown }).evaluate = savedEvaluate
     ;(page as unknown as { locator: unknown }).locator = savedLocator
     if (opts?.navigateTo) {
-      // Reset the shared tab before restoring goto — keeps the connection alive.
-      // page.close() would terminate the ArkWeb DevTools socket.
+      // Reset the shared tab to a neutral state — page.close() would terminate
+      // the ArkWeb DevTools socket so we navigate instead.
       try { await page.goto(opts.navigateTo) } catch {}
     }
-    ;(page as unknown as { goto: unknown }).goto = savedGoto
   }
 }
 
@@ -246,12 +201,6 @@ export const test = base.extend<{
   // CDP-backed tap that works regardless. Coordinates are CSS pixels relative
   // to the viewport, matching Playwright's touchscreen.tap semantics.
   tap: (x: number, y: number) => Promise<void>
-  // JS-synthesized mouse helpers for when CDP Input.dispatchMouseEvent does not
-  // deliver events to DOM listeners (ArkWeb limitation). Events are isTrusted:false.
-  // Use these instead of page.mouse.move/down/up when you need DOM listener delivery.
-  mouseMove: (x: number, y: number, opts?: { steps?: number }) => Promise<void>
-  mouseDown: (x: number, y: number) => Promise<void>
-  mouseUp: (x: number, y: number) => Promise<void>
   // Playwright's context.storageState() / use:{storageState} rely on internal
   // _page fixtures that break in single-context reuse mode. These helpers
   // serialize/restore cookies + localStorage via the working addCookies/
@@ -396,46 +345,6 @@ export const test = base.extend<{
       } finally {
         await session.detach()
       }
-    })
-  },
-
-  mouseMove: async ({ page }, use) => {
-    // ArkWeb CDP limitation: events dispatched via locator.evaluate() only reach
-    // page-script listeners if the listener body contains no closure references and
-    // the element has only a single addEventListener call. Any script complexity
-    // (outer variable declarations, multiple listeners) causes ArkWeb to route the
-    // callback into an isolated CDP execution context where closures are inaccessible,
-    // silently suppressing the event. For typical web applications this fixture
-    // will not deliver events. Prefer locator.click() / locator.fill() where possible.
-    await use(async (x: number, y: number, opts?: { steps?: number }) => {
-      const steps = Math.max(1, opts?.steps ?? 1)
-      for (let i = 0; i < steps; i++) {
-        await page.locator(':root').evaluate((root: Element, [x, y]: [number, number]) => {
-          const el = root.ownerDocument!.elementFromPoint(x, y)
-          if (el) el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, cancelable: true, clientX: x, clientY: y }))
-        }, [x, y] as [number, number])
-      }
-    })
-  },
-
-  mouseDown: async ({ page }, use) => {
-    await use(async (x: number, y: number) => {
-      await page.locator(':root').evaluate((root: Element, [x, y]: [number, number]) => {
-        const el = root.ownerDocument!.elementFromPoint(x, y)
-        if (el) el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: 1 }))
-      }, [x, y] as [number, number])
-    })
-  },
-
-  mouseUp: async ({ page }, use) => {
-    await use(async (x: number, y: number) => {
-      await page.locator(':root').evaluate((root: Element, [x, y]: [number, number]) => {
-        const el = root.ownerDocument!.elementFromPoint(x, y)
-        if (el) {
-          el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0 }))
-          el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0 }))
-        }
-      }, [x, y] as [number, number])
     })
   },
 
