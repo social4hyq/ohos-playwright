@@ -13,7 +13,8 @@ import { platformTest } from './platform-fixtures.js';
 import { serverFixtures } from './server-fixtures.js';
 import type { ServerFixtures, ServerWorkerOptions } from './server-fixtures.js';
 import type { PlatformWorkerFixtures } from './platform-fixtures.js';
-import { OHOS_FILE_FIXME } from './ohos-skip.js';
+import type { OhosCapabilities } from 'ohos-playwright/fixture'
+import { ARKWEB_ISSUE_URL } from './ohos-skip.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -60,6 +61,7 @@ type BrowserTestTestFixtures = {
   pageWithHar: (options?: { outputPath?: string; content?: 'embed' | 'attach' | 'omit'; omitContent?: boolean }) => Promise<{ context: BrowserContext; page: import('@playwright/test').Page; getLog: () => Promise<any>; getZip: () => Promise<Map<string, Buffer>> }>;
   autoSkipBidiTest: void;
   ohosAutoSkip: void;
+  capabilities: OhosCapabilities;
   // toImpl is only used in mode:'default' tests; skip on OHOS
   toImpl: any;
   // commonFixtures
@@ -116,17 +118,38 @@ export const test = merged.extend<BrowserTestTestFixtures, BrowserTestWorkerFixt
 
   autoSkipBidiTest: [async ({}, run) => { await run(); }, { auto: true, scope: 'test' }],
 
-  ohosAutoSkip: [async ({}, run, testInfo) => {
-    const file: string = (testInfo as any).file ?? '';
-    const title: string = testInfo.titlePath.join(' > ');
-    for (const { filePattern, titlePattern, reason } of OHOS_FILE_FIXME) {
-      if ((filePattern && filePattern.test(file)) || (titlePattern && titlePattern.test(title))) {
-        testInfo.fixme(true, reason);
-        break;
+  ohosAutoSkip: [async ({ capabilities: caps }, run, testInfo) => {
+    const file: string = (testInfo as any).file ?? ''
+
+    const check = (
+      flag: keyof OhosCapabilities,
+      pattern: RegExp,
+      note: string,
+    ) => {
+      if (!caps[flag] && pattern.test(file)) {
+        testInfo.fixme(true, `ArkWeb[${flag}]: ${note} — ${ARKWEB_ISSUE_URL[flag] ?? ''}`)
       }
     }
-    await run();
+
+    check('recordHar',          /browsercontext-har/,
+      'HAR 录制需 context 创建选项')
+    check('beforeunloadDismiss',/beforeunload/,
+      '系统级 beforeunload 弹窗无法通过 CDP dismiss')
+    check('proxyConfig',        /browsercontext-proxy/,
+      'proxy 为 launch-time 选项')
+    check('screencast',         /screencast|video/,
+      'Page.startScreencast 未实现')
+    check('playwrightInspector',/inspector|debug-ctrl|debugger/,
+      'Inspector 进程不可用')
+    check('persistentContext',  /defaultbrowsercontext|browsercontext-reuse/,
+      'persistent context 需 launch 步骤')
+
+    await run()
   }, { auto: true, scope: 'test' }],
+
+  capabilities: [async ({ device }, use) => {
+    await use(await (device as any).capabilities())
+  }, { scope: 'worker' }],
 
   toImpl: async ({}, use, testInfo) => {
     testInfo.skip(true, 'toImpl not available in connectOverCDP mode');
@@ -180,10 +203,9 @@ export const test = merged.extend<BrowserTestTestFixtures, BrowserTestWorkerFixt
       contexts.push(ctx);
       return ctx;
     });
-    // Do NOT call ctx.close() — Target.disposeBrowserContext crashes the ArkWeb CDP
-    // WebSocket, killing all subsequent tests. Navigate each page to about:blank instead.
+    // patched close()：navigate to about:blank + emit close（安全，不会断 WebSocket）
     for (const ctx of contexts) {
-      for (const p of ctx.pages()) await p.goto('about:blank').catch(() => {});
+      await ctx.close().catch(() => {})
     }
   },
 
