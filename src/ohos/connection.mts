@@ -57,6 +57,8 @@ export class OhosDeviceConnection {
       throw new Error(`[ohos-playwright] OHOS_PW_HDC "${this.HDC}" 不是有效的可执行文件路径（需绝对路径且文件存在）`)
   }
 
+  get hdcBinary(): string { return this.HDC }
+
   hdc(args: string[], opts?: Partial<ExecFileSyncOptions>): string {
     return String(execFileSync(this.HDC, args, { ...this.HDC_OPTS, ...opts })).trim()
   }
