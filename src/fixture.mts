@@ -364,7 +364,9 @@ export const test = base.extend<{
       ? ([...pages].reverse().find((p) => p.url() === (info.launchUrl ?? 'about:blank')) ?? pages[pages.length - 1])
       : (pages.find((p) => p.url().startsWith('http://localhost')) ?? pages[0])
 
-    const cleanup = await installPageWrappers(page, context, testInfo.project.use.baseURL)
+    // skipCreateTarget: Target.createTarget on ArkWeb disconnects the CDP WebSocket.
+    // Use fallback popup detection (idle about:blank tab) instead.
+    const cleanup = await installPageWrappers(page, context, testInfo.project.use.baseURL, { skipCreateTarget: true })
     try {
       await use(page)
     } finally {
