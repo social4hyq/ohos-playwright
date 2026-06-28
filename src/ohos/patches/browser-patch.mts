@@ -38,6 +38,12 @@ export function applyBrowserPatches(
   ;(browser as any).newPage = async (opts?: BrowserContextOptions) => {
     const ctx = await realNewContext(opts ?? {})
     const page = await ctx.newPage()
+    // page-owned context：第二次 ctx.newPage() 必须抛错（对齐 Playwright 上游语义）。
+    ;(ctx as any).newPage = async () => {
+      throw new Error(
+        'Please use browser.newContext() for multi-page scripts that share the context.',
+      )
+    }
     const realClose = page.close.bind(page)
     ;(page as any).close = async (closeOpts?: Parameters<typeof page.close>[0]) => {
       await realClose(closeOpts)
