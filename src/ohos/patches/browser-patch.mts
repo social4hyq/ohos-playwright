@@ -26,9 +26,15 @@ export function applyBrowserPatches(
   ;(browser as any).contexts = () =>
     (realContexts() as ReturnType<Browser['contexts']>).filter(ctx => !cdpContexts.has(ctx))
 
-  // 2. browser.newContext()：创建真实隔离 context（不注入 ArkWeb 补丁，CDP 正常）
+  // 2. browser.newContext()：创建真实隔离 context + 注入补丁。
+  //    ArkWeb 在 Target.disposeBrowserContext 上不稳定（会断 WebSocket），所以
+  //    新建 context 的 close 也必须走 emit('close') 路径而不是真实 dispose。
   const realNewContext = browser.newContext.bind(browser)
-  ;(browser as any).newContext = (opts?: BrowserContextOptions) => realNewContext(opts ?? {})
+  ;(browser as any).newContext = async (opts?: BrowserContextOptions) => {
+    const ctx = await realNewContext(opts ?? {})
+    applyContextPatches(ctx)
+    return ctx
+  }
 
   // 3. browser.newPage()：创建新 context + 新 page；page.close() 同步关闭 context
   //    对齐标准 Playwright browser.newPage() 行为（page-owned context lifecycle）。
