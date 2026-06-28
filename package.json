@@ -26,7 +26,11 @@
   "scripts": {
     "build": "tsc && node scripts/fix-extensions.mjs",
     "test": "node --test $(ls src/*.test.mts | grep -v api-coverage)",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "ohos-playwright test",
+    "test:upstream": "ohos-playwright test --config tests/upstream/playwright.config.ts",
+    "import-upstream": "node scripts/import-upstream-specs.mjs",
+    "copy-upstream-assets": "node scripts/copy-upstream-assets.mjs"
   },
   "engines": {
     "node": ">=24"
@@ -54,7 +58,11 @@
   "devDependencies": {
     "@playwright/test": ">=1.59.0",
     "@types/node": "^25.9.2",
-    "typescript": "^6.0.3"
+    "@types/ws": "^8.18.1",
+    "formidable": "^2.1.5",
+    "mime": "^3.0.0",
+    "typescript": "^6.0.3",
+    "ws": "^8.21.0"
   },
   "publishConfig": {
     "access": "public",
