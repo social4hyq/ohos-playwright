@@ -30,12 +30,19 @@ export function applyBrowserPatches(
   const realNewContext = browser.newContext.bind(browser)
   ;(browser as any).newContext = (opts?: BrowserContextOptions) => realNewContext(opts ?? {})
 
-  // 3. browser.newPage()：创建新 context + 新 page；page close 时自动关闭 context
+  // 3. browser.newPage()：创建新 context + 新 page；page.close() 同步关闭 context
   //    对齐标准 Playwright browser.newPage() 行为（page-owned context lifecycle）。
+  //    page.once('close', ...) 是 fire-and-forget，await page.close() 返回时 ctx 未关闭，
+  //    导致 browser.contexts() 在 page.close() 之后仍能看到该 context。包装 page.close()
+  //    在真实关闭后同步 await ctx.close()，确保 contexts() 数量立刻同步。
   ;(browser as any).newPage = async (opts?: BrowserContextOptions) => {
     const ctx = await realNewContext(opts ?? {})
     const page = await ctx.newPage()
-    page.once('close', () => { ctx.close().catch(() => {}) })
+    const realClose = page.close.bind(page)
+    ;(page as any).close = async (closeOpts?: Parameters<typeof page.close>[0]) => {
+      await realClose(closeOpts)
+      await ctx.close().catch(() => {})
+    }
     return page
   }
 
