@@ -21,7 +21,12 @@ export function resolve(
   if (specifier === TARGET) {
     const parent = context.parentURL ?? ''
     const isFromOwnDist = parent.startsWith(OWN_DIST_URL)
-    if (TEST_FILE.test(parent) || (FIXTURE_HELPER.test(parent) && !isFromOwnDist)) {
+    // Only redirect EXTERNAL consumer fixtures — internal package fixtures (like
+    // tests/upstream/fixtures/upstream-fixture.ts) explicitly import from
+    // ohos-playwright/fixture directly and need the real @playwright/test for
+    // mergeTests / chromium / expect. Excluding PACKAGE_ROOT_URL here lets
+    // the next branch handle them with the PROJECT_ANCHOR context change.
+    if (TEST_FILE.test(parent) || (FIXTURE_HELPER.test(parent) && !isFromOwnDist && !parent.startsWith(PACKAGE_ROOT_URL))) {
       return nextResolve(FIXTURE_URL, context)
     }
     if (parent.startsWith(PACKAGE_ROOT_URL)) {
