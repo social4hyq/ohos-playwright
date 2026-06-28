@@ -12,10 +12,19 @@ export function applyBrowserPatches(
   browser: Browser,
   conn: OhosDeviceConnection,
 ): void {
-  // 1. 默认 context（connectOverCDP 时已存在，不经过 newContext wrapper）
-  for (const ctx of browser.contexts()) {
+  // 1. CDP 预存 context（connectOverCDP 时已存在）
+  // 存为 __cdpDefaultContext 供 fixture 直接引用，从 browser.contexts() 中隐藏，
+  // 使 browser.contexts() 行为与 launched browser 一致（从 0 开始计数）。
+  const cdpContexts = new Set(browser.contexts())
+  ;(browser as any).__cdpDefaultContext = [...cdpContexts][0] ?? null
+  for (const ctx of cdpContexts) {
     applyContextPatches(ctx)
   }
+
+  const realContexts = (browser.contexts as Function).bind(browser)
+  ;(browser as any).contexts = () =>
+    (realContexts() as typeof browser.contexts extends () => infer R ? R : never)
+      .filter((ctx: (typeof browser.contexts extends () => (infer C)[] ? C : never)) => !cdpContexts.has(ctx))
 
   // 2. 包裹 newContext：创建真实隔离 context + 立即注入补丁
   const realNewContext = browser.newContext.bind(browser)

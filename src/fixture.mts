@@ -94,7 +94,9 @@ export const test = base.extend<{
     use: (c: BrowserContext) => Promise<void>,
     testInfo: { project: { use: { baseURL?: string } } },
   ) => {
-    const ctx = browser.contexts()[0]
+    // __cdpDefaultContext: connectOverCDP 时预存的 ArkWeb 默认 context
+    // browser.contexts() 已被 applyBrowserPatches 过滤掉该 context（对齐 launched browser 行为）
+    const ctx = (browser as any).__cdpDefaultContext ?? browser.contexts()[0]
     if (!ctx) throw new Error('[ohos-playwright] no browser context — browser may have failed to reconnect')
 
     // Inject baseURL into the context's private _options so that internal
