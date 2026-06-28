@@ -52,6 +52,7 @@ test('version should work', async function({ browser, browserName }) {
 });
 
 test('should dispatch page.on(close) upon browser.close and reject evaluate', async ({ browserType }) => {
+  test.fixme(true, 'ArkWeb[launch]: browserType.launch() not available in connectOverCDP-only mode');
   const browser = await browserType.launch();
   const page = await browser.newPage();
   let closed = false;
