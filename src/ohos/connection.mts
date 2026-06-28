@@ -54,7 +54,7 @@ export class OhosDeviceConnection {
     if (!SAFE_URL_RE.test(this.LAUNCH_URL) || this.LAUNCH_URL.length > 2048)
       throw new Error(`[ohos] LAUNCH_URL "${this.LAUNCH_URL}" 不是合法 URL`)
     if (!isAbsolute(this.HDC) || !existsSync(this.HDC))
-      throw new Error(`[ohos] HDC "${this.HDC}" 不是有效路径`)
+      throw new Error(`[ohos-playwright] OHOS_PW_HDC "${this.HDC}" 不是有效的可执行文件路径（需绝对路径且文件存在）`)
   }
 
   hdc(args: string[], opts?: Partial<ExecFileSyncOptions>): string {
@@ -151,7 +151,7 @@ export class OhosDeviceConnection {
     })
   }
 
-  private async retry<T>(
+  async retry<T>(
     fn: () => T | Promise<T>,
     opts: { max?: number; interval?: number; label?: string } = {},
   ): Promise<T> {
@@ -192,7 +192,7 @@ export class OhosDeviceConnection {
     return false
   }
 
-  private ensureHdcKey(): boolean {
+  ensureHdcKey(): boolean {
     const keyDir = join(homedir(), '.harmony')
     const priv = join(keyDir, 'hdckey')
     const pub = join(keyDir, 'hdckey.pub')
@@ -291,7 +291,7 @@ export class OhosDeviceConnection {
     return endpoint
   }
 
-  private _countPages(listJson: string): number {
+  _countPages(listJson: string): number {
     try {
       return (JSON.parse(listJson) as { type: string }[]).filter(t => t.type === 'page').length
     } catch { return 0 }
@@ -341,4 +341,53 @@ let _defaultConn: OhosDeviceConnection | null = null
 export function getDefaultConnection(): OhosDeviceConnection {
   if (!_defaultConn) _defaultConn = new OhosDeviceConnection()
   return _defaultConn
+}
+
+// ── Compat exports for backward compatibility with setup.mts consumers ────────
+// These wrap the singleton instance so callers that imported named functions
+// from setup.mts (before the refactor) continue to work unchanged.
+
+export interface RetryOptions { max?: number; interval?: number; label?: string }
+
+export async function retry<T>(
+  fn: () => T | Promise<T>,
+  opts: RetryOptions = {},
+): Promise<T> {
+  return getDefaultConnection().retry(fn, opts)
+}
+
+export function findBrowserPid(): number | null {
+  return getDefaultConnection().findBrowserPid()
+}
+
+export function hasDeviceConnected(): boolean {
+  return getDefaultConnection().hasDeviceConnected()
+}
+
+export async function ensureDeviceConnected(): Promise<void> {
+  return getDefaultConnection().ensureDeviceConnected()
+}
+
+export function setupReversePort(hostPort: number): void {
+  return getDefaultConnection().setupReversePort(hostPort)
+}
+
+export function teardownReversePort(hostPort: number): void {
+  return getDefaultConnection().teardownReversePort(hostPort)
+}
+
+export async function reconnect(): Promise<string> {
+  return getDefaultConnection().reconnect()
+}
+
+export function tryLocalDevice(): boolean {
+  return getDefaultConnection().tryLocalDevice()
+}
+
+export function ensureHdcKey(): boolean {
+  return getDefaultConnection().ensureHdcKey()
+}
+
+export function countCdpPages(listJson: string): number {
+  return getDefaultConnection()._countPages(listJson)
 }
