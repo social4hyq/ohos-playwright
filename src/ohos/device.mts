@@ -1,9 +1,11 @@
 // src/ohos/device.mts
 import { chromium } from '@playwright/test'
 import type { Browser } from '@playwright/test'
+import { readFileSync } from 'node:fs'
 import { OhosDeviceConnection, type OhosConnectOptions } from './connection.mts'
 import { applyBrowserPatches } from './patches/browser-patch.mts'
 import { detectCapabilities, type OhosCapabilities } from './capabilities.mts'
+import { INFO_PATH, type CdpInfo } from '../info-path.mts'
 
 export class OhosDevice {
   readonly serial: string
@@ -21,7 +23,14 @@ export class OhosDevice {
     // PW_CHROMIUM_ATTACH_TO_OTHER=1：ArkWeb Target.createTarget → type='other'
     // Playwright 需此 flag 才会把 'other' type target 接入 ctx.pages()。
     process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1'
-    const endpoint = await this._conn.connect()
+    // 优先读 globalSetup 已写入的 INFO_PATH，避免每个 worker 都重新 connect（会开新标签）。
+    let endpoint: string
+    try {
+      const info: CdpInfo = JSON.parse(readFileSync(INFO_PATH, 'utf8'))
+      endpoint = info.endpoint
+    } catch {
+      endpoint = await this._conn.connect()
+    }
     const raw = await chromium.connectOverCDP(endpoint)
     applyBrowserPatches(raw, this._conn)
     this._browser = raw
