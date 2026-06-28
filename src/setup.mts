@@ -141,6 +141,20 @@ function setupForward(port: number, socketName: string): void {
   hdc(['fport', `tcp:${port}`, `localabstract:${socketName}`])
 }
 
+// Reverse-forward: maps device-side tcp:<hostPort> → host-side tcp:<hostPort>.
+// Lets ArkWeb on-device reach the host TestServer at localhost:<hostPort>.
+// Remove syntax: `hdc fport rm tcp:PORT tcp:PORT` (two separate args).
+export function setupReversePort(hostPort: number): void {
+  try { hdc(['fport', 'rm', `tcp:${hostPort}`, `tcp:${hostPort}`]) } catch {}
+  try { hdc(['rport', `tcp:${hostPort}`, `tcp:${hostPort}`]) } catch (e) {
+    console.warn(`[ohos-playwright] rport tcp:${hostPort} failed: ${e instanceof Error ? e.message : e}`)
+  }
+}
+
+export function teardownReversePort(hostPort: number): void {
+  try { hdc(['fport', 'rm', `tcp:${hostPort}`, `tcp:${hostPort}`]) } catch {}
+}
+
 interface CdpProbeResult { ok: boolean; err?: string; body?: string }
 
 function cdpGet(port: number, path: string): Promise<CdpProbeResult> {

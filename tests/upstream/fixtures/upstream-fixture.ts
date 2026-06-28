@@ -13,6 +13,7 @@ import { platformTest } from './platform-fixtures.js';
 import { serverFixtures } from './server-fixtures.js';
 import type { ServerFixtures, ServerWorkerOptions } from './server-fixtures.js';
 import type { PlatformWorkerFixtures } from './platform-fixtures.js';
+import { OHOS_FILE_FIXME } from './ohos-skip.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -58,6 +59,7 @@ type BrowserTestTestFixtures = {
   contextFactory: (options?: BrowserContextOptions) => Promise<BrowserContext>;
   pageWithHar: (options?: { outputPath?: string; content?: 'embed' | 'attach' | 'omit'; omitContent?: boolean }) => Promise<{ context: BrowserContext; page: import('@playwright/test').Page; getLog: () => Promise<any>; getZip: () => Promise<Map<string, Buffer>> }>;
   autoSkipBidiTest: void;
+  ohosAutoSkip: void;
   // toImpl is only used in mode:'default' tests; skip on OHOS
   toImpl: any;
   // commonFixtures
@@ -113,6 +115,18 @@ export const test = merged.extend<BrowserTestTestFixtures, BrowserTestWorkerFixt
   // ── test-scoped fixtures ───────────────────────────────────────────────────
 
   autoSkipBidiTest: [async ({}, run) => { await run(); }, { auto: true, scope: 'test' }],
+
+  ohosAutoSkip: [async ({}, run, testInfo) => {
+    const file: string = (testInfo as any).file ?? '';
+    const title: string = testInfo.titlePath.join(' > ');
+    for (const { filePattern, titlePattern, reason } of OHOS_FILE_FIXME) {
+      if ((filePattern && filePattern.test(file)) || (titlePattern && titlePattern.test(title))) {
+        testInfo.fixme(true, reason);
+        break;
+      }
+    }
+    await run();
+  }, { auto: true, scope: 'test' }],
 
   toImpl: async ({}, use, testInfo) => {
     testInfo.skip(true, 'toImpl not available in connectOverCDP mode');

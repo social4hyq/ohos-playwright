@@ -12,6 +12,7 @@ import type { Fixtures } from '@playwright/test';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { TestServer } from './testserver.js';
+import { setupReversePort, teardownReversePort } from 'ohos-playwright/setup';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -43,6 +44,16 @@ export const serverFixtures: Fixtures<ServerFixtures, ServerWorkerOptions> = {
     const httpsServer = await TestServer.createHTTPS(assetsPath, httpsPort, loopback);
     httpsServer.enableHTTPCache(cachedPath);
 
+    // Reverse-forward host TestServer ports to the device so ArkWeb can reach
+    // http://127.0.0.1:<port> and https://127.0.0.1:<httpsPort> from on-device.
+    // Only needed when running against a real OHOS device (OHOS_PW_HOST is set
+    // by ohos-playwright's register.mts). Fails silently in non-device environments.
+    const isOhos = !!process.env.OHOS_PW_HOST;
+    if (isOhos) {
+      setupReversePort(port);
+      setupReversePort(httpsPort);
+    }
+
     await run({
       asset: (p: string) => path.join(__dirname, '..', 'assets', ...p.split('/')),
       server,
@@ -50,6 +61,10 @@ export const serverFixtures: Fixtures<ServerFixtures, ServerWorkerOptions> = {
       socksPort: 0,
     });
 
+    if (isOhos) {
+      teardownReversePort(port);
+      teardownReversePort(httpsPort);
+    }
     await Promise.all([server.stop(), httpsServer.stop()]);
   }, { scope: 'worker' }],
 

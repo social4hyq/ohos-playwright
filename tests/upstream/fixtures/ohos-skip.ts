@@ -1,12 +1,58 @@
 // Centralized ArkWeb / connectOverCDP limitation table.
 //
-// Used by upstream-fixture.ts's autoOhosSkip auto-fixture (if added) and as
-// documentation for per-spec test.fixme() annotations added during the fixme
-// pass (Commit 5). Source of truth: docs/superpowers/reports/2026-06-27-limitations-reaudit.md
+// Two tables:
+//   OHOS_FILE_FIXME — matched by spec file path (regex), applied via ohosAutoSkip auto-fixture
+//   OHOS_FIXME      — matched by title glob, used for per-spec annotations
 //
-// Format: { '<title pattern glob>': '<reason string>' }
-// Patterns are matched against test.info().title using minimatch.
+// Source of truth: docs/superpowers/reports/2026-06-27-limitations-reaudit.md
 
+export interface OhosSkipRule {
+  filePattern?: RegExp;
+  titlePattern?: RegExp;
+  reason: string;
+}
+
+// File-level rules: entire spec files that are hard-limited by ArkWeb architecture.
+// Applied automatically by the ohosAutoSkip fixture in upstream-fixture.ts.
+export const OHOS_FILE_FIXME: OhosSkipRule[] = [
+  // recordHar is a context-creation-time option; shared-context mode cannot set it.
+  {
+    filePattern: /browsercontext-har\.spec/,
+    reason: 'ArkWeb: recordHar requires context-creation-time options, unavailable in connectOverCDP shared-context mode',
+  },
+  // ArkWeb shows a system-level "Leave page?" beforeunload dialog that CDP cannot dismiss.
+  {
+    filePattern: /beforeunload\.spec/,
+    reason: 'ArkWeb: native beforeunload dialog cannot be dismissed via CDP — crashes WebSocket',
+  },
+  // Proxy is a launch-time option; connectOverCDP has no launch step.
+  {
+    filePattern: /browsercontext-proxy\.spec/,
+    reason: 'ArkWeb: proxy is launch-time config, unavailable in connectOverCDP mode',
+  },
+  // launch / launchServer / remote connect not available.
+  {
+    filePattern: /browser-server\.spec|browsertype-launch-server\.spec|browsertype-connect\.spec|multiclient\.spec/,
+    reason: 'ArkWeb: launch / launchServer / WebSocket connect not supported in connectOverCDP mode',
+  },
+  // Persistent context requires launchPersistentContext (launch-time).
+  {
+    filePattern: /defaultbrowsercontext|browsercontext-reuse/,
+    reason: 'ArkWeb: persistent context unavailable — system browser cannot be relaunched via CDP',
+  },
+  // Codegen / Inspector / Debug UI require the Playwright inspector process.
+  {
+    filePattern: /inspector|debug-controller|debugger\.spec|locator-generator|selector-generator/,
+    reason: 'ArkWeb: codegen / inspector / debug UI not available in connectOverCDP mode',
+  },
+  // Page.startScreencast not implemented in ArkWeb CDP.
+  {
+    filePattern: /screencast\.spec|video\.spec/,
+    reason: 'ArkWeb: Page.startScreencast not implemented',
+  },
+];
+
+// Title-glob rules (legacy format — used for per-spec annotations).
 export const OHOS_FIXME: Record<string, string> = {
   // Raw mouse API — DOM events not dispatched by ArkWeb for page.mouse.* calls
   'page.mouse.*': 'ArkWeb: page.mouse.* raw CDP input does not trigger DOM events; use locator-driven APIs',

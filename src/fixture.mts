@@ -356,6 +356,12 @@ export async function installPageWrappers(
               if (url && url !== 'about:blank') {
                 await idle.goto(url, { timeout: 5000 })
               }
+              // Patch idle tab's close() so specs calling page.close() on a popup
+              // don't trigger Target.closeTarget → CDP WebSocket crash.
+              if (!(idle as any).__ohosPageClosePatch) {
+                ;(idle as any).__ohosPageClosePatch = true
+                ;(idle as any).close = makeSafePageClose(idle)
+              }
               emitted = idle
             } catch {}
           }
@@ -497,20 +503,41 @@ export const test = base.extend<{
       ;(ctx as any).newPage = async () => {
         const seedPage = ctx.pages()[0]
         if (!seedPage) throw new Error('[ohos-playwright] context.newPage(): no pages in context')
+        // 1) Try real new tab (works when PW_CHROMIUM_ATTACH_TO_OTHER=1).
         const newP = await createPopupPage(ctx, seedPage, 'about:blank')
         if (newP) {
-          // Register beforeunload tracking + safe close on the new page.
-          if (!(newP as any).__ohosBeforeunloadPatched) {
-            ;(newP as any).__ohosBeforeunloadPatched = true
-            await newP.addInitScript(BEFOREUNLOAD_TRACKING_SCRIPT)
+          if (!(newP as any).__ohosPageClosePatch) {
+            ;(newP as any).__ohosPageClosePatch = true
+            if (!(newP as any).__ohosBeforeunloadPatched) {
+              ;(newP as any).__ohosBeforeunloadPatched = true
+              await newP.addInitScript(BEFOREUNLOAD_TRACKING_SCRIPT)
+            }
+            ;(newP as any).close = makeSafePageClose(newP)
           }
-          ;(newP as any).close = makeSafePageClose(newP)
           return newP
         }
-        throw new Error(
-          '[ohos-playwright] context.newPage(): Target.createTarget is not supported by ArkWeb in connectOverCDP mode — ' +
-          'this test requires test.fixme() for this limitation',
-        )
+        // 2) Fallback: reset and reuse the seed page (mirrors browser.newContext policy).
+        // This gives tests a "clean" page without creating a new CDP target.
+        await clearBeforeunload(seedPage)
+        const dismissDlg = (d: import('playwright-core').Dialog) => d.dismiss().catch(() => {})
+        seedPage.on('dialog', dismissDlg)
+        try { await seedPage.goto('about:blank') } catch {}
+        seedPage.off('dialog', dismissDlg)
+        return seedPage
+      }
+    }
+
+    // Patch close() on ALL existing pages in the context — prevents Target.closeTarget
+    // crash if a spec calls context.pages()[N].close() on a page that was not the
+    // primary fixture page (e.g. popup/idle tabs opened by prior tests).
+    for (const p of ctx.pages()) {
+      if (!(p as any).__ohosPageClosePatch) {
+        ;(p as any).__ohosPageClosePatch = true
+        ;(p as any).close = makeSafePageClose(p)
+        if (!(p as any).__ohosBeforeunloadPatched) {
+          ;(p as any).__ohosBeforeunloadPatched = true
+          await p.addInitScript(BEFOREUNLOAD_TRACKING_SCRIPT).catch(() => {})
+        }
       }
     }
 
