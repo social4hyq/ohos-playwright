@@ -69,7 +69,13 @@ export async function createPopupPage(
       await new Promise((r) => setTimeout(r, 50))
     }
     const allPages = context.pages()
-    if (allPages.length <= pagesBefore) return null
+    if (allPages.length <= pagesBefore) {
+      // Target was created but Playwright never picked it up (orphaned target).
+      // Close it explicitly so ArkWeb doesn't crash CDP when the context is closed.
+      await (session as unknown as { send: (cmd: string, args: unknown) => Promise<unknown> })
+        .send('Target.closeTarget', { targetId: r.targetId }).catch(() => {})
+      return null
+    }
 
     // Pick the newly-added page (any page not equal to seedPage, preferring
     // about:blank which is the createTarget's initial URL).
@@ -86,7 +92,10 @@ export async function createPopupPage(
       try {
         await newPage.goto(popupUrl, { timeout: 5000 })
       } catch {
-        await newPage.close().catch(() => {})
+        // Do NOT close the page here. Calling page.close() or Target.closeTarget
+        // on a tab with a still-pending navigation crashes the ArkWeb CDP WebSocket.
+        // Leave the tab in ctx.pages() so the caller's context teardown can close
+        // it after the navigation timeout has fully settled in ArkWeb.
         return null
       }
     }
@@ -102,6 +111,7 @@ export async function installPageWrappers(
   page: Page,
   context: BrowserContext,
   baseURL: string | undefined,
+  options?: { skipCreateTarget?: boolean },
 ): Promise<PageCleanup> {
   const ctxEmit = (context as unknown as { emit: (e: string, v: unknown) => void }).emit.bind(context)
 
@@ -227,11 +237,13 @@ export async function installPageWrappers(
         return q
       })
       for (const { url } of pending ?? []) {
-        // 1) Target.createTarget（首选）
+        // 1) Target.createTarget（首选，parallel context 下跳过以免 CDP 崩溃）
         let emitted: Page | null = null
-        try {
-          emitted = await createPopupPage(context, page, url || 'about:blank')
-        } catch {}
+        if (!options?.skipCreateTarget) {
+          try {
+            emitted = await createPopupPage(context, page, url || 'about:blank')
+          } catch {}
+        }
         // 2) Fallback A：默认 context 闲置 about:blank tab
         if (!emitted) {
           const idle = context
