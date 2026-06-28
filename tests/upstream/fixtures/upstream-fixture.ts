@@ -97,9 +97,27 @@ export const test = merged.extend<BrowserTestTestFixtures, BrowserTestWorkerFixt
   defaultSameSiteCookieValue: ['Lax', { scope: 'worker' }],
   bidiTestSkipPredicate: [async ({}, run) => { await run(() => false); }, { scope: 'worker' }],
 
-  browserType: [async ({}, run) => {
-    await run(chromium as any);
-  }, { scope: 'worker' }],
+  // Test-scoped to capture per-test testInfo for fixme conversion.
+  // connectOverCDP-only：launch/launchPersistentContext/launchServer/connect
+  // 不可用（无法在 OHOS 上运行本地 chromium binary）。返回 Proxy 让 .name 等属性
+  // 仍工作；调用 launch 类方法时 testInfo.fixme(true) 将测试标记为 fixme 跳过。
+  // 副作用：browser.browserType() !== browserType（identity check）— 极少数依赖该
+  // identity 的测试需要单独 fixme。
+  browserType: async ({}, run, testInfo) => {
+    const UNAVAILABLE = new Set(['launch', 'launchPersistentContext', 'launchServer', 'connect']);
+    const proxy = new Proxy(chromium as any, {
+      get(target, prop, receiver) {
+        if (typeof prop === 'string' && UNAVAILABLE.has(prop)) {
+          return async () => {
+            testInfo.fixme(true, `ArkWeb[connectOverCDP]: browserType.${prop}() not available`);
+            return undefined as never;
+          };
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    });
+    await run(proxy);
+  },
 
   browserVersion: [async ({ browser }, run) => {
     await run(browser.version());

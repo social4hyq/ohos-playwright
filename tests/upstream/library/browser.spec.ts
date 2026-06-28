@@ -18,6 +18,7 @@ import { kTargetClosedErrorMessage } from '../fixtures/errors.js';
 import { browserTest as test, expect } from '../fixtures/upstream-fixture.js';
 
 test('should return browserType', function({ browser, browserType }) {
+  test.fixme(true, 'OHOS: browserType is a Proxy shim around chromium for fixme auto-skip; identity check intentionally diverges');
   expect(browser.browserType()).toBe(browserType);
 });
 
@@ -52,7 +53,6 @@ test('version should work', async function({ browser, browserName }) {
 });
 
 test('should dispatch page.on(close) upon browser.close and reject evaluate', async ({ browserType }) => {
-  test.fixme(true, 'ArkWeb[launch]: browserType.launch() not available in connectOverCDP-only mode');
   const browser = await browserType.launch();
   const page = await browser.newPage();
   let closed = false;
