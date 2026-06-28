@@ -292,9 +292,15 @@ export async function installPageWrappers(
     ;(page as unknown as { locator: unknown }).locator = savedLocator
     ;(page as unknown as { goto: unknown }).goto = savedGoto
     if (opts?.navigateTo) {
-      // Reset the shared tab to a neutral state — page.close() would terminate
-      // the ArkWeb DevTools socket so we navigate instead.
+      // Clear beforeunload handlers before navigating — ArkWeb shows a native
+      // system-level "Leave page?" dialog that CDP cannot auto-dismiss.
+      try { await page.evaluate(() => { window.onbeforeunload = null }) } catch {}
+      // Auto-dismiss any dialog that fires during the cleanup navigation
+      // (alert/confirm/prompt left over from a test body).
+      const dismissDialog = (d: import('playwright-core').Dialog) => d.dismiss().catch(() => {})
+      page.on('dialog', dismissDialog)
       try { await page.goto(opts.navigateTo) } catch {}
+      page.off('dialog', dismissDialog)
     }
   }
 }
