@@ -275,6 +275,38 @@ export async function ensureDeviceConnected(): Promise<void> {
   console.log(`[ohos-playwright] connected: ${addr}`)
 }
 
+// Re-connects to ArkWeb after a CDP WebSocket crash.
+// Called by fixture.mts when browser.on('disconnected') fires.
+// Returns the new CDP endpoint URL.
+export async function reconnect(): Promise<string> {
+  console.log('[ohos-playwright] reconnect: restarting browser...')
+  // aa start: if browser is already running this opens a new tab; if it crashed it relaunches.
+  launchBrowser()
+
+  // Wait for the main browser process (may take a moment after aa start).
+  const pid = await retry(findBrowserPid, { max: 30, interval: 500, label: 'reconnect: browser pid' }) as number
+  console.log(`[ohos-playwright] reconnect: pid=${pid}`)
+
+  const socket = await retry(
+    () => findDevToolsSocket(pid),
+    { max: 10, interval: 500, label: 'reconnect: DevTools socket' },
+  ) as string
+
+  const port = await pickFreePort()
+  setupForward(port, socket)
+  console.log(`[ohos-playwright] reconnect: fport tcp:${port} -> localabstract:${socket}`)
+
+  await retry(
+    async () => { const p = await probeCdp(port); return p.ok ? true : null },
+    { max: 10, interval: 500, label: 'reconnect: CDP probe' },
+  )
+
+  const endpoint = `http://127.0.0.1:${port}`
+  writeFileSync(INFO_PATH, JSON.stringify({ port, pid, socket, endpoint, openedNewTab: false, launchUrl: LAUNCH_URL }, null, 2))
+  console.log(`[ohos-playwright] reconnect: ready at ${endpoint}`)
+  return endpoint
+}
+
 export default async function globalSetup(): Promise<void> {
   await ensureDeviceConnected()
   console.log(`[ohos-playwright] locating ${BUNDLE}...`)

@@ -2,6 +2,42 @@ import { readFileSync } from 'node:fs'
 import { test as base, chromium } from '@playwright/test'
 import type { Browser, BrowserContext, Page } from '@playwright/test'
 import { INFO_PATH, type CdpInfo } from './info-path.mts'
+import { reconnect } from './setup.mts'
+
+// ── Worker-level reconnect state ──────────────────────────────────────────────
+// When ArkWeb's CDP WebSocket crashes, auto-reconnect before the next test.
+let _activeBrowser: Browser | null = null
+let _reconnectPromise: Promise<void> | null = null
+
+async function triggerReconnect(): Promise<void> {
+  if (_reconnectPromise) return
+  _reconnectPromise = (async () => {
+    try {
+      const endpoint = await reconnect()
+      const nb = await chromium.connectOverCDP(endpoint)
+      _patchBrowser(nb)
+      // Re-register so future crashes on this browser also auto-reconnect.
+      nb.on('disconnected', () => { void triggerReconnect() })
+      _activeBrowser = nb
+    } catch (e) {
+      console.error('[ohos-playwright] auto-reconnect failed:', e)
+    } finally {
+      _reconnectPromise = null
+    }
+  })()
+}
+
+// Applied to a browser after connect / reconnect.
+function _patchBrowser(browser: Browser): void {
+  // Override browser.newContext(): Target.createBrowserContext crashes ArkWeb.
+  // Return the existing context so tests can at least run (with reduced isolation).
+  ;(browser as any).newContext = async (_opts?: unknown) => {
+    const existing = browser.contexts()[0]
+    if (existing) return existing
+    // Should not happen in normal flow but guard anyway.
+    throw new Error('[ohos-playwright] browser.newContext(): no existing context found after connectOverCDP')
+  }
+}
 
 export interface DeviceDescriptor {
   viewport: { width: number; height: number }
@@ -107,6 +143,59 @@ export async function createPopupPage(
   }
 }
 
+// Init script that patches window.addEventListener to track 'beforeunload' listeners.
+// ArkWeb shows a native "Leave page?" dialog when beforeunload fires during CDP navigation;
+// that dialog cannot be dismissed via CDP → crashes the WebSocket. By tracking handlers
+// we can remove them all before any cleanup navigation.
+const BEFOREUNLOAD_TRACKING_SCRIPT = () => {
+  if ((window as any).__ohosBeforeunloadPatched) return
+  ;(window as any).__ohosBeforeunloadPatched = true
+  const _handlers: EventListenerOrEventListenerObject[] = []
+  const _origAdd = window.addEventListener.bind(window)
+  const _origRemove = window.removeEventListener.bind(window)
+  ;(window as any).addEventListener = (type: string, listener: any, ...rest: any[]) => {
+    if (type === 'beforeunload' && listener) _handlers.push(listener)
+    return (_origAdd as any)(type, listener, ...rest)
+  }
+  ;(window as any).removeEventListener = (type: string, listener: any, ...rest: any[]) => {
+    if (type === 'beforeunload') {
+      const idx = _handlers.indexOf(listener)
+      if (idx !== -1) _handlers.splice(idx, 1)
+    }
+    return (_origRemove as any)(type, listener, ...rest)
+  }
+  ;(window as any).__ohosRemoveAllBeforeunload = () => {
+    ;(window as any).onbeforeunload = null
+    for (const h of _handlers) {
+      try { _origRemove('beforeunload', h) } catch {}
+    }
+    _handlers.length = 0
+  }
+}
+
+// Helper: evaluate that removes all beforeunload handlers (tracked + window.onbeforeunload).
+async function clearBeforeunload(p: Page): Promise<void> {
+  try {
+    await p.evaluate(() => {
+      if ((window as any).__ohosRemoveAllBeforeunload) (window as any).__ohosRemoveAllBeforeunload()
+      else { (window as any).onbeforeunload = null }
+    })
+  } catch {}
+}
+
+// Build a safe page.close() replacement: clears all beforeunload handlers before
+// navigating to about:blank, then emits 'close'. Prevents Target.closeTarget crash.
+function makeSafePageClose(p: Page): (_opts?: { runBeforeUnload?: boolean }) => Promise<void> {
+  return async (_opts?: { runBeforeUnload?: boolean }) => {
+    await clearBeforeunload(p)
+    const dismissDlg = (d: import('playwright-core').Dialog) => d.dismiss().catch(() => {})
+    p.on('dialog', dismissDlg)
+    try { await p.goto('about:blank') } catch {}
+    p.off('dialog', dismissDlg)
+    ;(p as unknown as { emit: (e: string) => void }).emit('close')
+  }
+}
+
 export async function installPageWrappers(
   page: Page,
   context: BrowserContext,
@@ -133,6 +222,19 @@ export async function installPageWrappers(
   } finally {
     await session.detach()
   }
+
+  // Register init script that tracks all addEventListener('beforeunload', ...) handlers.
+  // Applied once per page object; runs on every navigation in that page.
+  if (!(page as any).__ohosBeforeunloadPatched) {
+    ;(page as any).__ohosBeforeunloadPatched = true
+    await page.addInitScript(BEFOREUNLOAD_TRACKING_SCRIPT)
+  }
+
+  // Override page.close(): Target.closeTarget crashes ArkWeb CDP WebSocket.
+  // Navigate to about:blank + emit 'close' event instead, so tests that call
+  // page.close() don't kill the CDP session for all subsequent tests.
+  const savedClose = (page as unknown as Record<string, unknown>)['close'] as typeof page.close
+  ;(page as any).close = makeSafePageClose(page)
 
   // Override goto: connectOverCDP creates the server-side context with no baseURL in
   // its _options, so Playwright's internal Frame.goto cannot resolve relative paths —
@@ -291,10 +393,11 @@ export async function installPageWrappers(
     ;(page as unknown as { evaluate: unknown }).evaluate = savedEvaluate
     ;(page as unknown as { locator: unknown }).locator = savedLocator
     ;(page as unknown as { goto: unknown }).goto = savedGoto
+    ;(page as unknown as { close: unknown }).close = savedClose
     if (opts?.navigateTo) {
-      // Clear beforeunload handlers before navigating — ArkWeb shows a native
+      // Clear all beforeunload handlers before navigating — ArkWeb shows a native
       // system-level "Leave page?" dialog that CDP cannot auto-dismiss.
-      try { await page.evaluate(() => { window.onbeforeunload = null }) } catch {}
+      await clearBeforeunload(page)
       // Auto-dismiss any dialog that fires during the cleanup navigation
       // (alert/confirm/prompt left over from a test body).
       const dismissDialog = (d: import('playwright-core').Dialog) => d.dismiss().catch(() => {})
@@ -328,12 +431,27 @@ export const test = base.extend<{
 }>({
   browser: [
     async ({}, use: (b: Browser) => Promise<void>) => {
-      const browser = await chromium.connectOverCDP(readEndpoint())
-      // browser.newContext() + addCookies / storageState() work in connectOverCDP mode.
-      // ctx.newPage() requires PW_CHROMIUM_ATTACH_TO_OTHER=1 on ArkWeb (Target.createTarget
-      // returns type='other' so Playwright skips the new target); without it Playwright
-      // throws its natural "_page undefined" error.
+      let browser: Browser
+      try {
+        browser = await chromium.connectOverCDP(readEndpoint())
+      } catch {
+        // Stale endpoint — ArkWeb crashed and the port is gone. Restart and reconnect.
+        console.log('[ohos-playwright] browser fixture: stale endpoint, restarting ArkWeb...')
+        const freshEndpoint = await reconnect()
+        browser = await chromium.connectOverCDP(freshEndpoint)
+      }
+      _patchBrowser(browser)
+      _activeBrowser = browser
+
+      // Auto-reconnect: when ArkWeb crashes (CDP WebSocket drops), restart browser
+      // and re-connect before the next test's fixtures are set up.
+      const onDisconnected = () => { void triggerReconnect() }
+      browser.on('disconnected', onDisconnected)
+
       await use(browser)
+
+      browser.off('disconnected', onDisconnected)
+      _activeBrowser = null
     },
     { scope: 'worker' as const },
   ],
@@ -343,7 +461,16 @@ export const test = base.extend<{
     use: (c: BrowserContext) => Promise<void>,
     testInfo: { project: { use: { baseURL?: string } } },
   ) => {
-    const ctx = browser.contexts()[0]
+    // Wait for any pending reconnect before accessing the context.
+    if (_reconnectPromise) {
+      console.log('[ohos-playwright] waiting for browser reconnect before test...')
+      await _reconnectPromise
+    }
+
+    const live = _activeBrowser ?? browser
+    const ctx = live.contexts()[0]
+    if (!ctx) throw new Error('[ohos-playwright] no browser context — browser may have failed to reconnect')
+
     // Inject baseURL into the context's private _options so that internal
     // Playwright URL resolution (toHaveURL, waitForURL, locators) works for
     // SPA-navigated pages — page.goto patching alone is not sufficient.
@@ -351,6 +478,42 @@ export const test = base.extend<{
     if (baseURL) {
       ;(ctx as unknown as { _options: Record<string, unknown> })._options.baseURL = baseURL
     }
+
+    // Override context.close(): Target.disposeBrowserContext crashes ArkWeb.
+    // Navigate all pages to about:blank and emit 'close' instead.
+    if (!(ctx as any).__ohosClosePatch) {
+      ;(ctx as any).__ohosClosePatch = true
+      ;(ctx as any).close = async () => {
+        for (const p of ctx.pages()) {
+          await clearBeforeunload(p)
+          try { await p.goto('about:blank') } catch {}
+        }
+        ;(ctx as unknown as { emit: (e: string) => void }).emit('close')
+      }
+      // Override context.newPage(): Target.createTarget crashes ArkWeb.
+      // Try via createPopupPage (safe — uses timeout + catch). If it succeeds,
+      // patch the returned page with a safe close() to prevent Target.closeTarget crash.
+      // If createPopupPage fails, throw a descriptive error.
+      ;(ctx as any).newPage = async () => {
+        const seedPage = ctx.pages()[0]
+        if (!seedPage) throw new Error('[ohos-playwright] context.newPage(): no pages in context')
+        const newP = await createPopupPage(ctx, seedPage, 'about:blank')
+        if (newP) {
+          // Register beforeunload tracking + safe close on the new page.
+          if (!(newP as any).__ohosBeforeunloadPatched) {
+            ;(newP as any).__ohosBeforeunloadPatched = true
+            await newP.addInitScript(BEFOREUNLOAD_TRACKING_SCRIPT)
+          }
+          ;(newP as any).close = makeSafePageClose(newP)
+          return newP
+        }
+        throw new Error(
+          '[ohos-playwright] context.newPage(): Target.createTarget is not supported by ArkWeb in connectOverCDP mode — ' +
+          'this test requires test.fixme() for this limitation',
+        )
+      }
+    }
+
     await use(ctx)
   },
 

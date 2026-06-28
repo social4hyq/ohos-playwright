@@ -14,7 +14,7 @@
 //
 // Assets are NOT copied by this script — run copy-upstream-assets.mjs for that.
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync, unlinkSync } from 'fs';
 import { join, dirname, relative, basename } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -190,7 +190,14 @@ for (const { dir, prefix, destPrefix } of sources) {
   const specs = collectSpecs(dir, prefix);
   for (const { full, rel } of specs) {
     if (shouldSkip(rel)) {
-      console.log(`SKIP  ${rel}`);
+      // Also remove the file if it was previously copied and is now skipped.
+      const dest = join(UPSTREAM, destPrefix, rel.substring(prefix.length + 1));
+      if (!dryRun && existsSync(dest)) {
+        unlinkSync(dest);
+        console.log(`DEL   ${rel}`);
+      } else {
+        console.log(`SKIP  ${rel}`);
+      }
       skipped++;
       continue;
     }

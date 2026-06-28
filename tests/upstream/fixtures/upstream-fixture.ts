@@ -166,7 +166,11 @@ export const test = merged.extend<BrowserTestTestFixtures, BrowserTestWorkerFixt
       contexts.push(ctx);
       return ctx;
     });
-    for (const ctx of contexts) await ctx.close().catch(() => {});
+    // Do NOT call ctx.close() — Target.disposeBrowserContext crashes the ArkWeb CDP
+    // WebSocket, killing all subsequent tests. Navigate each page to about:blank instead.
+    for (const ctx of contexts) {
+      for (const p of ctx.pages()) await p.goto('about:blank').catch(() => {});
+    }
   },
 
   createUserDataDir: async ({}, run, testInfo) => {
