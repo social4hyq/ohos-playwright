@@ -11,7 +11,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const pkgRoot = join(__dirname, '..', '..')
 const pkgDist = join(pkgRoot, 'dist')
 
-const multiContextOk = process.env.PW_CHROMIUM_ATTACH_TO_OTHER === '1'
+// OhosDevice.browser() 自动设置 PW_CHROMIUM_ATTACH_TO_OTHER=1；上游测试始终启用多 context。
+const multiContextOk = true
 
 // OHOS_PW_HOST is set by register.mts (injected via ohos-playwright CLI).
 // When not set (e.g. plain `npx playwright test`), run as a vanilla Playwright
@@ -24,7 +25,7 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 15_000 },
   reporter: [['list']],
-  workers: isOhos && !multiContextOk ? 1 : undefined,
+  workers: isOhos ? (process.env.OHOS_PW_WORKERS ? parseInt(process.env.OHOS_PW_WORKERS) : 1) : undefined,
   ...(isOhos ? {
     globalSetup: join(pkgDist, 'setup.mjs'),
     globalTeardown: join(pkgDist, 'teardown.mjs'),
