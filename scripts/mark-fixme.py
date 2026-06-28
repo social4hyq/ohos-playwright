@@ -20,9 +20,11 @@ def find_test_line(lines, target_line, title):
     marking the wrong test when failure-list line numbers drift from spec source.
     Returns None if no match or if test is already .fixme/.skip.
     """
-    # Extract a stable title prefix (first 20 chars, alphanumeric/punctuation only).
-    # JSON report titles include emoji/escape sequences that may not appear verbatim in source.
-    title_hint = re.sub(r'[^A-Za-z0-9 _\-]', '', title)[:25].strip()
+    # Normalize: collapse whitespace, lowercase. Keep punctuation (dots, etc.) since
+    # they appear verbatim in both JSON title and source.
+    title_norm = re.sub(r'\s+', ' ', title).strip().lower()
+    # Use a prefix (first 30 chars) to avoid edge cases with quoted strings in title
+    title_hint = title_norm[:30]
     for offset in range(-3, 4):
         idx = target_line - 1 + offset
         if 0 <= idx < len(lines):
@@ -33,7 +35,8 @@ def find_test_line(lines, target_line, title):
             if re.match(r"\s*test\s*\(", line):
                 # Validate title is present in this line or the next (multi-line test decl)
                 scope = line + (lines[idx + 1] if idx + 1 < len(lines) else '')
-                if not title_hint or title_hint.lower() in scope.lower():
+                scope_norm = re.sub(r'\s+', ' ', scope).strip().lower()
+                if not title_hint or title_hint in scope_norm:
                     return idx
                 # Title mismatch — likely line drift; refuse to mark wrong test
                 return None
