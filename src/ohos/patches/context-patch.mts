@@ -18,11 +18,27 @@ export function applyContextPatches(ctx: BrowserContext): void {
     ;(ctx as unknown as { emit: (e: string) => void }).emit('close')
   }
 
-  // newPage：createPopupPage（Target.createTarget + PW_CHROMIUM_ATTACH_TO_OTHER=1）
-  //          失败时 fallback → reset seedPage to about:blank
+  // newPage：
+  //   - 空 context（browser.newPage() 路径）→ 真实 Playwright newPage()
+  //   - 已有页面的 context → createPopupPage（Target.createTarget）
+  //   - createPopupPage 失败 → reset seedPage to about:blank
+  const realNewPage = (ctx.newPage as Function).bind(ctx)
   ;(ctx as any).newPage = async () => {
     const seedPage = ctx.pages()[0]
-    if (!seedPage) throw new Error('[ohos] context.newPage(): no pages in context')
+
+    if (!seedPage) {
+      // 新建 context 没有 seed page，走真实的 Playwright newPage()
+      const p = await realNewPage()
+      if (!(p as any).__ohosPageClosePatch) {
+        ;(p as any).__ohosPageClosePatch = true
+        if (!(p as any).__ohosBeforeunloadPatched) {
+          ;(p as any).__ohosBeforeunloadPatched = true
+          await p.addInitScript(BEFOREUNLOAD_TRACKING_SCRIPT)
+        }
+        ;(p as any).close = makeSafePageClose(p)
+      }
+      return p
+    }
 
     const newP = await createPopupPage(ctx, seedPage, 'about:blank')
     if (newP) {
