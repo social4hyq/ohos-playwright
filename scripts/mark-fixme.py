@@ -14,18 +14,29 @@ from pathlib import Path
 FAILED_COMMENT = '    // Marked test.fixme: failing in initial baseline (see probes/playwright-test/REPORT.md).\n'
 
 def find_test_line(lines, target_line, title):
-    # The reported line is typically the test() call line.
-    # Search ±5 lines for `test(` to be safe.
-    for offset in range(-2, 3):
+    """Find the line index of `test(` near target_line.
+
+    Validates that the matched line contains the expected title substring to avoid
+    marking the wrong test when failure-list line numbers drift from spec source.
+    Returns None if no match or if test is already .fixme/.skip.
+    """
+    # Extract a stable title prefix (first 20 chars, alphanumeric/punctuation only).
+    # JSON report titles include emoji/escape sequences that may not appear verbatim in source.
+    title_hint = re.sub(r'[^A-Za-z0-9 _\-]', '', title)[:25].strip()
+    for offset in range(-3, 4):
         idx = target_line - 1 + offset
         if 0 <= idx < len(lines):
             line = lines[idx]
-            # Match test('...', test("...', or test(`...
-            # Skip if already .fixme
+            # Skip if already .fixme or .skip
             if 'test.fixme' in line or 'test.skip' in line:
                 return None
             if re.match(r"\s*test\s*\(", line):
-                return idx
+                # Validate title is present in this line or the next (multi-line test decl)
+                scope = line + (lines[idx + 1] if idx + 1 < len(lines) else '')
+                if not title_hint or title_hint.lower() in scope.lower():
+                    return idx
+                # Title mismatch — likely line drift; refuse to mark wrong test
+                return None
     return None
 
 def main():

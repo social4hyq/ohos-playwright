@@ -13,8 +13,9 @@ establishing the first runner-conformance regression baseline for ohos-playwrigh
 
 Initial baseline was 235/565 = 41.6%. Used `scripts/mark-fixme.py` to wrap each failing
 test declaration with `test.fixme()` and a `// BASELINE-FAIL: see REPORT.md` comment.
-**324 tests** are now fixme'd, documenting specific compat gaps. **3 tests** remain
-failing (edge cases the marker script couldn't auto-detect — manual review needed).
+**304 tests** were marked baseline-fail by the script. Combined with **~20 pre-existing**
+`test.skip`/`test.fixme` inherited from upstream, total **324 skipped** in the final run.
+**3 tests** remain failing (edge cases the marker script couldn't auto-detect — manual review needed).
 
 ## Architecture
 

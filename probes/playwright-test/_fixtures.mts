@@ -178,15 +178,34 @@ function spawnCli(args: string[], env: NodeJS.ProcessEnv, cwd: string) {
   const stderrChunks: Buffer[] = [];
   child.stdout?.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
   child.stderr?.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
+  // Hard timeout: 60s per subprocess. Without this, a hung child (e.g., embedded
+  // browser test that should have been fixme'd, or stdin wait in watch stub)
+  // would hang the entire suite until the outer 120s config timeout kills the
+  // parent — but the orphaned child could keep running. This guarantees cleanup.
+  const TIMEOUT_MS = 60_000;
+  let timer: NodeJS.Timeout | undefined;
   const exited = new Promise<number>((resolve) => {
-    child.on('exit', code => resolve(code ?? 0));
-    child.on('error', () => resolve(1));
+    timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      resolve(124);  // timeout exit code (matches `timeout` command convention)
+    }, TIMEOUT_MS);
+    child.on('exit', code => {
+      if (timer) clearTimeout(timer);
+      resolve(code ?? 0);
+    });
+    child.on('error', () => {
+      if (timer) clearTimeout(timer);
+      resolve(1);
+    });
   });
   return {
     stdout: () => Buffer.concat(stdoutChunks).toString(),
     stderr: () => Buffer.concat(stderrChunks).toString(),
     exited,
-    kill: (signal: NodeJS.Signals = 'SIGKILL') => child.kill(signal),
+    kill: (signal: NodeJS.Signals = 'SIGKILL') => {
+      if (timer) clearTimeout(timer);
+      child.kill(signal);
+    },
   };
 }
 
@@ -270,14 +289,16 @@ export const test = base.extend<{
   },
   runTSC: async ({}, use) => {
     await use(async (_files: Files) => {
-      // STUB: not implemented. Tests needing real runTSC will fail; mark test.fixme.
-      return { output: 'runTSC stub: TypeScript compile not implemented in ohos-playwright _fixtures', exitCode: 0 };
+      // STUB: not implemented. Returns non-zero exitCode (2 = TS compilation error convention)
+      // so tests asserting `exitCode === 0` for valid TS do NOT spuriously pass on broken input.
+      // Real implementation should spawn `tsc` against the embedded files.
+      return { output: 'runTSC stub: TypeScript compile not implemented in ohos-playwright _fixtures', exitCode: 2 };
     });
   },
   mergeReports: async ({}, use) => {
     await use(async (_reportFolder: string, _env?: NodeJS.ProcessEnv, _options?: RunOptions) => {
-      // STUB: blob report merging not implemented in from-scratch _fixtures.
-      return { output: 'mergeReports stub', exitCode: 0 };
+      // STUB: blob report merging not implemented. Returns non-zero to avoid false positives.
+      return { output: 'mergeReports stub', exitCode: 2 };
     });
   },
   server: async ({}, use) => {
