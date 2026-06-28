@@ -54,12 +54,18 @@ export async function clearBeforeunload(p: Page): Promise<void> {
 // navigating to about:blank, then emits 'close'. Prevents Target.closeTarget crash.
 export function makeSafePageClose(p: Page): (_opts?: { runBeforeUnload?: boolean }) => Promise<void> {
   return async (_opts?: { runBeforeUnload?: boolean }) => {
+    if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
+      console.error(`[ohos][PAGE_CLOSE] ${new Date().toISOString()} url=${p.url()}`)
+    }
     await clearBeforeunload(p)
     const dismissDlg = (d: import('playwright-core').Dialog) => d.dismiss().catch(() => {})
     p.on('dialog', dismissDlg)
     try { await p.goto('about:blank') } catch {}
     p.off('dialog', dismissDlg)
     ;(p as unknown as { emit: (e: string) => void }).emit('close')
+    if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
+      console.error(`[ohos][PAGE_CLOSE_DONE] ${new Date().toISOString()}`)
+    }
   }
 }
 

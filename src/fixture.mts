@@ -124,6 +124,9 @@ export const test = base.extend<{
     use: (p: Page) => Promise<void>,
     testInfo: { project: { use: { baseURL?: string } } },
   ) => {
+    if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
+      console.error(`[ohos][PAGE_FIXTURE_START] ${new Date().toISOString()}`)
+    }
     const pages = context.pages()
     if (pages.length === 0) throw new Error('No pages in ArkWeb CDP context. Open a tab first.')
     const info = readInfo()
@@ -142,7 +145,13 @@ export const test = base.extend<{
     try {
       await use(page)
     } finally {
+      if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
+        console.error(`[ohos][PAGE_CLEANUP_START] ${new Date().toISOString()}`)
+      }
       await cleanup({ navigateTo: info.openedNewTab ? 'about:blank' : undefined })
+      if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
+        console.error(`[ohos][PAGE_CLEANUP_DONE] ${new Date().toISOString()}`)
+      }
     }
   },
 

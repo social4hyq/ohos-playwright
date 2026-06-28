@@ -19,7 +19,7 @@ export function applyBrowserPatches(
   const cdpContexts = new Set(browser.contexts())
   ;(browser as any).__cdpDefaultContext = [...cdpContexts][0] ?? null
   for (const ctx of cdpContexts) {
-    applyContextPatches(ctx)
+    applyContextPatches(ctx, { isDefault: true })
   }
 
   const realContexts = (browser.contexts as Function).bind(browser)
@@ -31,8 +31,14 @@ export function applyBrowserPatches(
   //    新建 context 的 close 也必须走 emit('close') 路径而不是真实 dispose。
   const realNewContext = browser.newContext.bind(browser)
   ;(browser as any).newContext = async (opts?: BrowserContextOptions) => {
+    if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
+      console.error(`[ohos][NEW_CONTEXT] ${new Date().toISOString()}`)
+    }
     const ctx = await realNewContext(opts ?? {})
-    applyContextPatches(ctx)
+    if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
+      console.error(`[ohos][NEW_CONTEXT_DONE] ${new Date().toISOString()}`)
+    }
+    applyContextPatches(ctx, { isDefault: false })
     return ctx
   }
 
@@ -58,6 +64,13 @@ export function applyBrowserPatches(
     return page
   }
 
-  // 4. 断线自动重连
-  browser.on('disconnected', () => { void conn.reconnect() })
+  // 4. 断线自动重连 — 调试日志：打印断连时间戳 + 完整堆栈，定位触发点
+  browser.on('disconnected', () => {
+    if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
+      const ts = new Date().toISOString()
+      console.error(`\n[ohos][DISCONNECT] ${ts} browser disconnected`)
+      console.error(new Error('disconnect stack trace').stack)
+    }
+    void conn.reconnect()
+  })
 }

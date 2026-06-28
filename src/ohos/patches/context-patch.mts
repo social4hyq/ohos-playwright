@@ -5,17 +5,32 @@
 import type { BrowserContext } from '@playwright/test'
 import { clearBeforeunload, makeSafePageClose, createPopupPage, BEFOREUNLOAD_TRACKING_SCRIPT } from './page-patch.mts'
 
-export function applyContextPatches(ctx: BrowserContext): void {
+export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: boolean }): void {
   if ((ctx as any).__ohosPatch) return
   ;(ctx as any).__ohosPatch = true
+  const isDefault = !!opts?.isDefault
 
-  // close：navigate to about:blank + emit close（替代 Target.disposeBrowserContext）
+  // close 行为分两路：
+  //   默认 context：不能真实 dispose（会关掉整个浏览器）。导航到 about:blank +
+  //     emit close — 让 Playwright 内部清理但不动 CDP 端 Context。
+  //   非默认 context（browser.newContext()）：不能在已 navigate 过的 page 上做
+  //     goto('about:blank')（ArkWeb 会断开 WS），也不能真实 disposeBrowserContext
+  //     （会断 WS）。直接 emit('close') — 让 Playwright 客户端释放引用，CDP 端
+  //     的 context/pages 留作泄漏，下次 worker 重启时由 ArkWeb 自己清理。
   ;(ctx as any).close = async () => {
-    for (const p of ctx.pages()) {
-      await clearBeforeunload(p)
-      try { await p.goto('about:blank') } catch {}
+    if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
+      console.error(`[ohos][CTX_CLOSE] ${new Date().toISOString()} default=${isDefault} pages=${ctx.pages().length}`)
+    }
+    if (isDefault) {
+      for (const p of ctx.pages()) {
+        await clearBeforeunload(p)
+        try { await p.goto('about:blank') } catch {}
+      }
     }
     ;(ctx as unknown as { emit: (e: string) => void }).emit('close')
+    if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
+      console.error(`[ohos][CTX_CLOSE_DONE] ${new Date().toISOString()}`)
+    }
   }
 
   // newPage：
