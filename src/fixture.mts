@@ -6,9 +6,9 @@ import { getOhosDevice } from './ohos/device.mts'
 import type { OhosDevice } from './ohos/device.mts'
 import { applyInputPatches } from './ohos/patches/input-patch.mts'
 import {
-  installPageWrappers, createPopupPage, clearBeforeunload, makeSafePageClose,
-  BEFOREUNLOAD_TRACKING_SCRIPT, type PageCleanup,
+  installPageWrappers, createPopupPage, type PageCleanup,
 } from './ohos/patches/page-patch.mts'
+import { applyContextPatches } from './ohos/patches/context-patch.mts'
 import type { OhosCapabilities } from './ohos/capabilities.mts'
 
 export type { PageCleanup }
@@ -105,61 +105,11 @@ export const test = base.extend<{
       ;(ctx as unknown as { _options: Record<string, unknown> })._options.baseURL = baseURL
     }
 
-    // Override context.close(): Target.disposeBrowserContext crashes ArkWeb.
-    // Navigate all pages to about:blank and emit 'close' instead.
-    if (!(ctx as any).__ohosClosePatch) {
-      ;(ctx as any).__ohosClosePatch = true
-      ;(ctx as any).close = async () => {
-        for (const p of ctx.pages()) {
-          await clearBeforeunload(p)
-          try { await p.goto('about:blank') } catch {}
-        }
-        ;(ctx as unknown as { emit: (e: string) => void }).emit('close')
-      }
-      // Override context.newPage(): Target.createTarget crashes ArkWeb.
-      // Try via createPopupPage (safe — uses timeout + catch). If it succeeds,
-      // patch the returned page with a safe close() to prevent Target.closeTarget crash.
-      // If createPopupPage fails, throw a descriptive error.
-      ;(ctx as any).newPage = async () => {
-        const seedPage = ctx.pages()[0]
-        if (!seedPage) throw new Error('[ohos-playwright] context.newPage(): no pages in context')
-        // 1) Try real new tab (works when PW_CHROMIUM_ATTACH_TO_OTHER=1).
-        const newP = await createPopupPage(ctx, seedPage, 'about:blank')
-        if (newP) {
-          if (!(newP as any).__ohosPageClosePatch) {
-            ;(newP as any).__ohosPageClosePatch = true
-            if (!(newP as any).__ohosBeforeunloadPatched) {
-              ;(newP as any).__ohosBeforeunloadPatched = true
-              await newP.addInitScript(BEFOREUNLOAD_TRACKING_SCRIPT)
-            }
-            ;(newP as any).close = makeSafePageClose(newP)
-          }
-          return newP
-        }
-        // 2) Fallback: reset and reuse the seed page (mirrors browser.newContext policy).
-        // This gives tests a "clean" page without creating a new CDP target.
-        await clearBeforeunload(seedPage)
-        const dismissDlg = (d: import('playwright-core').Dialog) => d.dismiss().catch(() => {})
-        seedPage.on('dialog', dismissDlg)
-        try { await seedPage.goto('about:blank') } catch {}
-        seedPage.off('dialog', dismissDlg)
-        return seedPage
-      }
-    }
-
-    // Patch close() on ALL existing pages in the context — prevents Target.closeTarget
-    // crash if a spec calls context.pages()[N].close() on a page that was not the
-    // primary fixture page (e.g. popup/idle tabs opened by prior tests).
-    for (const p of ctx.pages()) {
-      if (!(p as any).__ohosPageClosePatch) {
-        ;(p as any).__ohosPageClosePatch = true
-        ;(p as any).close = makeSafePageClose(p)
-        if (!(p as any).__ohosBeforeunloadPatched) {
-          ;(p as any).__ohosBeforeunloadPatched = true
-          await p.addInitScript(BEFOREUNLOAD_TRACKING_SCRIPT).catch(() => {})
-        }
-      }
-    }
+    // Apply ArkWeb context patches (idempotent — guarded by __ohosPatch).
+    // applyBrowserPatches already calls this when the browser connects; calling
+    // again here is safe and ensures the context is always patched even if the
+    // fixture runs before device.browser() completes patching.
+    applyContextPatches(ctx)
 
     // 每次测试前清空 cookie（共享 context 的兜底，真实 context 不需要此步）
     await ctx.clearCookies().catch(() => {})

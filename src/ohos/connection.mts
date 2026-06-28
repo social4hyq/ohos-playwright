@@ -30,6 +30,7 @@ export class OhosDeviceConnection {
   private readonly BUNDLE: string
   private readonly LAUNCH_URL: string
   private readonly HDC_OPTS: ExecFileSyncOptions
+  private readonly _serial: string | undefined
 
   constructor(opts: OhosConnectOptions = {}) {
     this.HDC = opts.hdcBinary
@@ -42,6 +43,7 @@ export class OhosDeviceConnection {
       ?? process.env.OHOS_PW_LAUNCH_URL
       ?? 'about:blank'
     this.HDC_OPTS = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    this._serial = opts.serial
 
     this._validateOpts()
   }
@@ -60,7 +62,8 @@ export class OhosDeviceConnection {
   get hdcBinary(): string { return this.HDC }
 
   hdc(args: string[], opts?: Partial<ExecFileSyncOptions>): string {
-    return String(execFileSync(this.HDC, args, { ...this.HDC_OPTS, ...opts })).trim()
+    const fullArgs = this._serial ? ['-t', this._serial, ...args] : args
+    return String(execFileSync(this.HDC, fullArgs, { ...this.HDC_OPTS, ...opts })).trim()
   }
 
   shellOnDevice(cmd: string): string { return this.hdc(['shell', cmd]) }
