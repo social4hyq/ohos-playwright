@@ -311,14 +311,16 @@ export async function installPageWrappers(
 
   // evaluate() exceptions reject the promise but never become pageerror events
   // (CDP catches them before they become uncaught). Intercept and re-emit.
+  // 透传所有参数让 Playwright 内置的 "Too many arguments" 校验生效。
   // Save and restore to prevent wrapper accumulation across tests on the same page object.
   const savedEvaluate = (page as unknown as Record<string, unknown>)['evaluate'] as typeof origEvaluate
-  ;(page as unknown as { evaluate: unknown }).evaluate = async (fn: unknown, arg?: unknown) => {
+  ;(page as unknown as { evaluate: unknown }).evaluate = async (...args: unknown[]) => {
     try {
-      return await origEvaluate(fn as Parameters<typeof origEvaluate>[0], arg as Parameters<typeof origEvaluate>[1])
+      return await (origEvaluate as (...a: unknown[]) => Promise<unknown>)(...args)
     } catch (e: unknown) {
       const err = e instanceof Error ? e : new Error(String(e))
       ;(page as unknown as { emit: (e: string, v: unknown) => void }).emit('pageerror', err)
+      throw err
     }
   }
 
