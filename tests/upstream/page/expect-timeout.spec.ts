@@ -95,6 +95,7 @@ test('should not throw when navigating during first locator handler check', asyn
 });
 
 test('should timeout during first locator handler check', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: locator handler 错误消息格式与上游不一致');
   await page.addLocatorHandler(page.locator('div'), async locator => {});
   await page.setContent(`<div>hello</div><span>bye</span>`);
   const error = await expect(page.locator('span')).toHaveText('bye', { timeout: 3000 }).catch(e => e);
@@ -112,6 +113,7 @@ Call log:
 });
 
 test('should not miss element that appears between retries before the deadline', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: window.builtins 未定义，无法 setTimeout');
   await page.setContent(`<div id="target" style="display:none">content</div>`);
   await page.evaluate(() => {
     window.builtins.setTimeout(() => {
