@@ -24,22 +24,8 @@ if ((process.platform as string) === 'openharmony') {
   // reach those — we still must advertise 'linux' for the duration of this
   // process. Safe because we connect over CDP and never touch Playwright's
   // bundled browser binaries. Clean fix requires upstream openharmony branch.
+  // PW_CHROMIUM_ATTACH_TO_OTHER=1 现在由 OhosDevice.browser() 在连接时设置。
   Object.defineProperty(process, 'platform', { value: 'linux' })
-
-  // ArkWeb's Target.createTarget returns a target with type='other', not
-  // 'page'. Playwright's crBrowser._onAttachedToTarget (crBrowser.ts:191)
-  // only registers 'page' targets into _crPages — 'other' targets get
-  // detached and ctx.newPage() throws "Cannot read properties of undefined
-  // (reading '_page')".
-  //
-  // PW_CHROMIUM_ATTACH_TO_OTHER (crBrowser.ts:181) is playwright's upstream
-  // escape hatch: treat type='other' as page so newContext/newPage work.
-  // It's opt-in (not set here by default) because it also makes Playwright
-  // treat ArkWeb's internal "other" targets (shared workers, etc.) as pages,
-  // which perturbs page-list assumptions in tests that use touchscreen /
-  // recordHar. Users who need multi-context set it explicitly:
-  //   process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1'
-  // before importing @playwright/test.
 
   registerHooks({ resolve })
 }

@@ -12,6 +12,7 @@ import {
 import type { OhosCapabilities } from './ohos/capabilities.mts'
 
 export type { PageCleanup }
+export type { OhosCapabilities }
 export { installPageWrappers, createPopupPage }
 
 export interface DeviceDescriptor {
