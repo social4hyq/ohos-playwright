@@ -554,7 +554,6 @@ test('should(not) block third party cookies - persistent context', async ({ http
 });
 
 test('should(not) block third party cookies - ephemeral context', async ({ page, context, httpsServer, allowsThirdParty, defaultSameSiteCookieValue }) => {
-  test.fixme(true, 'ArkWeb: cascade-flake — 前置 HTTPS iframe 测试触发 page evaluate target 关闭');
   await testThirdPartyCookiesAreBlocked(page, context, httpsServer, allowsThirdParty, defaultSameSiteCookieValue);
 });
 
@@ -595,7 +594,6 @@ async function testThirdPartyCookiesAreBlocked(page: Page, context: BrowserConte
 }
 
 test('should not block third party SameSite=None cookies', async ({ contextFactory, httpsServer, browserName }) => {
-  test.fixme(true, 'ArkWeb: cascade — 前置 HTTPS iframe 累积触发 page.goto target 关闭');
   test.skip(browserName === 'webkit', 'No third party cookies in WebKit');
   test.skip(process.env.PW_CLOCK === 'frozen');
   const context = await contextFactory({

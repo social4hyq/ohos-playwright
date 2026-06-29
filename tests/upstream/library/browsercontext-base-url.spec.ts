@@ -67,7 +67,7 @@ it('should construct the URLs correctly when a baseURL with a trailing slash in 
 });
 
 it('should not construct a new URL when valid URLs are passed', async function({ browser, server }) {
-  it.fixme(true, 'ArkWeb: 新 context page 在 http→data: URL 跳转后 target 被关闭');
+  it.fixme(true, 'ArkWeb: browser.newPage() + data: URL 跳转后 target 被关闭');
   const page = await browser.newPage({
     baseURL: 'http://microsoft.com',
   });

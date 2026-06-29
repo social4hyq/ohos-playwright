@@ -72,7 +72,7 @@ it('should bypass CSP header', async ({ browser, server }) => {
 });
 
 it('should bypass after cross-process navigation', async ({ browser, server }) => {
-  it.fixme(true, 'ArkWeb: cascade — 第 4 个 newContext 累积触发 page.goto target 关闭');
+  it.fixme(true, 'ArkWeb: browser.newContext({ bypassCSP }) + cross-process goto 触发 target 关闭');
   const context = await browser.newContext({ bypassCSP: true });
   const page = await context.newPage();
   await page.goto(server.PREFIX + '/csp.html');
