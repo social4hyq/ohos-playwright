@@ -120,8 +120,24 @@ export const test = base.extend<{
     // fixture runs before device.browser() completes patching.
     applyContextPatches(ctx)
 
-    // 每次测试前清空 cookie（共享 context 的兜底）。
+    // 每次测试前重置共享 context 状态。
+    // Storage.clearDataForOrigin('*', 'all') 清空所有 origin 的 cookies、
+    // localStorage、indexedDB、service worker — 比 clearCookies 更彻底。
+    // 通过 CDP 发送（需从已有页面获取 session）。
     await ctx.clearCookies().catch(() => {})
+    const pages = ctx.pages()
+    if (pages.length > 0) {
+      const cdp = await ctx.newCDPSession(pages[0]).catch(() => null)
+      if (cdp) {
+        try {
+          await (cdp.send as any)('Storage.clearDataForOrigin', {
+            origin: '*',
+            storageTypes: 'all',
+          })
+        } catch { /* best-effort */ }
+        await cdp.detach().catch(() => {})
+      }
+    }
 
     await use(ctx)
 
