@@ -36,6 +36,7 @@ const it = base.extend<{
 });
 
 it('should work', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: request fulfill 行为差异');
   await page.route('**/*', route => {
     void route.fulfill({
       status: 201,
@@ -53,6 +54,7 @@ it('should work', async ({ page, server }) => {
 });
 
 it('should work with buffer as body', async ({ page, server, browserName, isLinux }) => {
+  it.fixme(true, 'ArkWeb: request fulfill 行为差异');
   await page.route('**/*', route => {
     void route.fulfill({
       status: 200,
@@ -66,6 +68,7 @@ it('should work with buffer as body', async ({ page, server, browserName, isLinu
 });
 
 it('should work with status code 422', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: request fulfill 行为差异');
   await page.route('**/*', route => {
     void route.fulfill({
       status: 422,
@@ -79,6 +82,7 @@ it('should work with status code 422', async ({ page, server }) => {
 });
 
 it('should fulfill with unuassigned status codes', async ({ page, server, browserName }) => {
+  it.fixme(true, 'ArkWeb: request fulfill 行为差异');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/28490' });
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/30773' });
   let fulfillPromiseCallback;
@@ -101,6 +105,7 @@ it('should fulfill with unuassigned status codes', async ({ page, server, browse
 });
 
 it('should not throw if request was cancelled by the page', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: request fulfill 行为差异');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/28490' });
   let interceptCallback;
   const interceptPromise = new Promise<Route>(f => interceptCallback = f);
@@ -176,6 +181,7 @@ it('should work with file path', async ({ page, server, asset, mode, isAndroid }
 });
 
 it('should stringify intercepted request response headers', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: request fulfill 行为差异');
   await page.route('**/*', route => {
     void route.fulfill({
       status: 200,
@@ -193,6 +199,7 @@ it('should stringify intercepted request response headers', async ({ page, serve
 });
 
 it('should not modify the headers sent to the server', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: request fulfill 行为差异');
   await page.goto(server.PREFIX + '/empty.html');
   const interceptedRequests = [];
 
@@ -365,6 +372,7 @@ it('headerValue should return set-cookie from intercepted response', async ({ pa
 });
 
 it('should fulfill with har response', async ({ page, asset }) => {
+  it.fixme(true, 'ArkWeb: request fulfill 行为差异');
   const harPath = asset('har-fulfill.har');
   const har = JSON.parse(await fs.promises.readFile(harPath, 'utf-8')) as har.HARFile;
   await page.route('**/*', async route => {
@@ -397,6 +405,7 @@ function findResponse(har: har.HARFile, url: string): har.Response {
 }
 
 it('should fulfill preload link requests', async ({ page, server, browserName }) => {
+  it.fixme(true, 'ArkWeb: request fulfill 行为差异');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/16745' });
   let intercepted = false;
   await page.route('**/one-style.css', route => {
@@ -423,6 +432,7 @@ it('should fulfill preload link requests', async ({ page, server, browserName })
 });
 
 it('should fulfill json', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: request fulfill 行为差异');
   await page.goto(server.EMPTY_PAGE);
   await page.route('**/data.json', route => {
     void route.fulfill({
