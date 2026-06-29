@@ -50,14 +50,112 @@ export async function clearBeforeunload(p: Page): Promise<void> {
   } catch {}
 }
 
-// Build a safe page.close() replacement: clears all beforeunload handlers before
-// navigating to about:blank, then emits 'close'. Prevents Target.closeTarget crash.
-export function makeSafePageClose(p: Page): (_opts?: { runBeforeUnload?: boolean }) => Promise<void> {
+// CDP Target.createTarget verified stable on ArkWeb (10+ targets, no WS disconnect).
+// Target.closeTarget also verified stable. Use these instead of the fragile
+// navigate-to-blank + fake-close pattern that was needed before the verification.
+
+const _pageTargetMap = new WeakMap<object, string>()
+
+export function setPageTargetId(page: Page, targetId: string): void {
+  _pageTargetMap.set(page, targetId)
+}
+
+// Create a new page in the default context via CDP Target.createTarget.
+// Returns the new Page on success, null if Playwright never picks up the target.
+// Much simpler than createPopupPage — no URL navigation, just blank target creation.
+export async function createPageViaCDP(
+  context: BrowserContext,
+  seedPage?: Page | null,
+): Promise<Page | null> {
+  const useSeed = seedPage ?? context.pages()[0]
+  if (!useSeed) return null
+  let session: import('@playwright/test').CDPSession | null = null
+  try {
+    session = await context.newCDPSession(useSeed)
+    const r = await (session.send as any)('Target.createTarget', { url: 'about:blank' }) as { targetId?: string }
+    if (!r.targetId) return null
+
+    const pagesBefore = context.pages().length
+    const deadline = Date.now() + 3000
+    while (Date.now() < deadline) {
+      if (context.pages().length > pagesBefore) break
+      await new Promise(res => setTimeout(res, 50))
+    }
+    const allPages = context.pages()
+    if (allPages.length <= pagesBefore) {
+      // Orphaned target: close it so we don't leak
+      await (session.send as any)('Target.closeTarget', { targetId: r.targetId }).catch(() => {})
+      return null
+    }
+    const newPage = allPages.find(p => p !== useSeed) ?? allPages[allPages.length - 1]
+    if (newPage) _pageTargetMap.set(newPage, r.targetId)
+    return newPage
+  } catch {
+    return null
+  } finally {
+    if (session) await session.detach().catch(() => {})
+  }
+}
+
+// Close a page via CDP Target.closeTarget (verified stable).
+// Falls back to the navigate-to-blank approach if no targetId can be found.
+export async function closePageViaCDP(context: BrowserContext, page: Page): Promise<void> {
+  if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
+    console.error(`[ohos][PAGE_CLOSE_CDP] ${new Date().toISOString()} url=${page.url()}`)
+  }
+  await clearBeforeunload(page)
+
+  // Try to get targetId from our tracking map or by CDP Target.getTargets
+  let targetId = _pageTargetMap.get(page)
+  if (!targetId) {
+    // Fall back to finding target by URL
+    const seedPage = context.pages().find(p => p !== page) ?? page
+    let session: import('@playwright/test').CDPSession | null = null
+    try {
+      session = await context.newCDPSession(seedPage)
+      const { targetInfos } = await (session.send as any)('Target.getTargets') as { targetInfos?: Array<{ targetId: string; url: string }> }
+      const pageUrl = page.url()
+      const match = (targetInfos ?? []).find((t: { url: string }) => t.url === pageUrl || pageUrl === 'about:blank')
+      if (match) targetId = match.targetId
+    } catch { /* fall through */ }
+    finally { if (session) await session.detach().catch(() => {}) }
+  }
+
+  if (targetId) {
+    const seedPage = context.pages().find(p => p !== page) ?? page
+    let session: import('@playwright/test').CDPSession | null = null
+    try {
+      session = await context.newCDPSession(seedPage)
+      await (session.send as any)('Target.closeTarget', { targetId })
+      _pageTargetMap.delete(page)
+      return // Success
+    } catch { /* fall back */ }
+    finally { if (session) await session.detach().catch(() => {}) }
+  }
+
+  // Ultimate fallback: navigate away + emit close
+  const dismissDlg = (d: import('playwright-core').Dialog) => d.dismiss().catch(() => {})
+  page.on('dialog', dismissDlg)
+  try { await page.goto('about:blank') } catch {}
+  page.off('dialog', dismissDlg)
+  ;(page as unknown as { emit: (e: string) => void }).emit('close')
+}
+
+// Build a safe page.close() wrapper — uses CDP Target.closeTarget when a context
+// is available, falls back to navigate-to-blank otherwise.
+export function makeSafePageClose(p: Page, context?: BrowserContext): (_opts?: { runBeforeUnload?: boolean }) => Promise<void> {
   return async (_opts?: { runBeforeUnload?: boolean }) => {
     if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
       console.error(`[ohos][PAGE_CLOSE] ${new Date().toISOString()} url=${p.url()}`)
     }
     await clearBeforeunload(p)
+
+    // Try CDP close if we have context access
+    if (context) {
+      try { await closePageViaCDP(context, p); return } catch {}
+    }
+
+    // Fallback: navigate away + emit close
     const dismissDlg = (d: import('playwright-core').Dialog) => d.dismiss().catch(() => {})
     p.on('dialog', dismissDlg)
     try { await p.goto('about:blank') } catch {}
@@ -175,7 +273,7 @@ export async function installPageWrappers(
   // Navigate to about:blank + emit 'close' event instead, so tests that call
   // page.close() don't kill the CDP session for all subsequent tests.
   const savedClose = (page as unknown as Record<string, unknown>)['close'] as typeof page.close
-  ;(page as any).close = makeSafePageClose(page)
+  ;(page as any).close = makeSafePageClose(page, context)
 
   // Override goto: connectOverCDP creates the server-side context with no baseURL in
   // its _options, so Playwright's internal Frame.goto cannot resolve relative paths —
@@ -282,7 +380,7 @@ export async function installPageWrappers(
               // don't trigger Target.closeTarget → CDP WebSocket crash.
               if (!(idle as any).__ohosPageClosePatch) {
                 ;(idle as any).__ohosPageClosePatch = true
-                ;(idle as any).close = makeSafePageClose(idle)
+                ;(idle as any).close = makeSafePageClose(idle, context)
               }
               emitted = idle
             } catch {}

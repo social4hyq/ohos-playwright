@@ -6,14 +6,14 @@ import { getOhosDevice } from './ohos/device.mts'
 import type { OhosDevice } from './ohos/device.mts'
 import { applyInputPatches } from './ohos/patches/input-patch.mts'
 import {
-  installPageWrappers, createPopupPage, type PageCleanup,
+  installPageWrappers, createPopupPage, createPageViaCDP, closePageViaCDP, type PageCleanup,
 } from './ohos/patches/page-patch.mts'
 import { applyContextPatches } from './ohos/patches/context-patch.mts'
 import type { OhosCapabilities } from './ohos/capabilities.mts'
 
 export type { PageCleanup }
 export type { OhosCapabilities }
-export { installPageWrappers, createPopupPage }
+export { installPageWrappers, createPopupPage, createPageViaCDP, closePageViaCDP }
 
 export interface DeviceDescriptor {
   viewport: { width: number; height: number }
@@ -136,17 +136,14 @@ export const test = base.extend<{
     }
     const pages = context.pages()
     if (pages.length === 0) throw new Error('No pages in ArkWeb CDP context. Open a tab first.')
-    const info = readInfo()
-    // If globalSetup opened a fresh tab for the test, use it — this avoids
-    // disturbing user tabs that were open when the test suite started.
-    // The new tab is identified by its launchUrl (default: about:blank); if
-    // multiple tabs match, pick the last one (most recently opened).
-    const page = info.openedNewTab
-      ? ([...pages].reverse().find((p) => p.url() === (info.launchUrl ?? 'about:blank')) ?? pages[pages.length - 1])
-      : (pages.find((p) => p.url().startsWith('http://localhost')) ?? pages[0])
 
-    // skipCreateTarget: Target.createTarget on ArkWeb disconnects the CDP WebSocket.
-    // Use fallback popup detection (idle about:blank tab) instead.
+    // If there's exactly one page (the CDP default), reuse it — closing it
+    // would kill the CDP connection. Otherwise create a fresh page via
+    // CDP Target.createTarget (verified stable).
+    const isDefaultPage = pages.length === 1
+    const page = isDefaultPage ? pages[0] : await context.newPage()
+    if (!page) throw new Error('Failed to get or create page')
+
     const cleanup = await installPageWrappers(page, context, testInfo.project.use.baseURL, { skipCreateTarget: true })
     applyInputPatches(page)
     try {
@@ -155,7 +152,15 @@ export const test = base.extend<{
       if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
         console.error(`[ohos][PAGE_CLEANUP_START] ${new Date().toISOString()}`)
       }
-      await cleanup({ navigateTo: info.openedNewTab ? 'about:blank' : undefined })
+      await cleanup()
+      if (isDefaultPage) {
+        // CDP default page: navigate to about:blank to reset state.
+        // Cannot close it — would kill the CDP browser connection.
+        try { await page.goto('about:blank') } catch {}
+      } else {
+        // Created page: close via CDP Target.closeTarget (verified stable).
+        await closePageViaCDP(context, page).catch(() => {})
+      }
       if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
         console.error(`[ohos][PAGE_CLEANUP_DONE] ${new Date().toISOString()}`)
       }

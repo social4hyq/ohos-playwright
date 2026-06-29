@@ -3,7 +3,7 @@
 // 幂等（__ohosPatch 标志防止重复调用）。
 
 import type { BrowserContext } from '@playwright/test'
-import { clearBeforeunload, makeSafePageClose, createPopupPage, BEFOREUNLOAD_TRACKING_SCRIPT } from './page-patch.mts'
+import { clearBeforeunload, makeSafePageClose, createPopupPage, createPageViaCDP, BEFOREUNLOAD_TRACKING_SCRIPT } from './page-patch.mts'
 
 export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: boolean }): void {
   if ((ctx as any).__ohosPatch) return
@@ -56,11 +56,10 @@ export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: bo
   }
 
   // newPage：
-  //   - 非默认 ctx（browser.newContext()）→ 总是 realNewPage()；ArkWeb 在隔离
-  //     context 内的 Target.createTarget 不会断 WS（不像默认 ctx 那么脆弱）
+  //   - 非默认 ctx（browser.newContext()）→ 总是 realNewPage()
   //   - 默认 ctx 空 → realNewPage()（兼容 browser.newPage 路径）
-  //   - 默认 ctx 已有页面 → createPopupPage（Target.createTarget via CDP）
-  //   - createPopupPage 失败 → reset seedPage to about:blank
+  //   - 默认 ctx 已有页面 → createPageViaCDP（Target.createTarget via CDP；已验证稳定）
+  //   - createPageViaCDP 失败 → reset seedPage to about:blank
   const realNewPage = (ctx.newPage as Function).bind(ctx)
   const wrapPage = async (p: import('@playwright/test').Page) => {
     if (!(p as any).__ohosPageClosePatch) {
@@ -69,7 +68,7 @@ export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: bo
         ;(p as any).__ohosBeforeunloadPatched = true
         await p.addInitScript(BEFOREUNLOAD_TRACKING_SCRIPT)
       }
-      ;(p as any).close = makeSafePageClose(p)
+      ;(p as any).close = makeSafePageClose(p, ctx)
     }
     return p
   }
@@ -81,7 +80,7 @@ export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: bo
       return await wrapPage(p)
     }
 
-    const newP = await createPopupPage(ctx, seedPage, 'about:blank')
+    const newP = await createPageViaCDP(ctx, seedPage)
     if (newP) {
       if (!(newP as any).__ohosPageClosePatch) {
         ;(newP as any).__ohosPageClosePatch = true
@@ -89,7 +88,7 @@ export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: bo
           ;(newP as any).__ohosBeforeunloadPatched = true
           await newP.addInitScript(BEFOREUNLOAD_TRACKING_SCRIPT)
         }
-        ;(newP as any).close = makeSafePageClose(newP)
+        ;(newP as any).close = makeSafePageClose(newP, ctx)
       }
       return newP
     }
@@ -107,7 +106,7 @@ export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: bo
   for (const p of ctx.pages()) {
     if (!(p as any).__ohosPageClosePatch) {
       ;(p as any).__ohosPageClosePatch = true
-      ;(p as any).close = makeSafePageClose(p)
+      ;(p as any).close = makeSafePageClose(p, ctx)
     }
   }
 }
