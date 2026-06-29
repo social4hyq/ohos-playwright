@@ -97,43 +97,19 @@ export async function createPageViaCDP(
   }
 }
 
-// Close a page via CDP Target.closeTarget (verified stable).
-// Falls back to the navigate-to-blank approach if no targetId can be found.
+// "Close" a page by navigating to about:blank and emitting the close event.
+// Target.closeTarget removes the CDP target but does NOT visually close the
+// browser tab on ArkWeb — the tab persists and accumulates across restarts.
+// Navigating to about:blank instead keeps the tab count stable: the blank page
+// can be reused by future context.newPage() calls (see page pool in
+// context-patch.mts).
 export async function closePageViaCDP(context: BrowserContext, page: Page): Promise<void> {
   if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
     console.error(`[ohos][PAGE_CLOSE_CDP] ${new Date().toISOString()} url=${page.url()}`)
   }
   await clearBeforeunload(page)
+  _pageTargetMap.delete(page)
 
-  // Try to get targetId from our tracking map or by CDP Target.getTargets
-  let targetId = _pageTargetMap.get(page)
-  if (!targetId) {
-    // Fall back to finding target by URL
-    const seedPage = context.pages().find(p => p !== page) ?? page
-    let session: import('@playwright/test').CDPSession | null = null
-    try {
-      session = await context.newCDPSession(seedPage)
-      const { targetInfos } = await (session.send as any)('Target.getTargets') as { targetInfos?: Array<{ targetId: string; url: string }> }
-      const pageUrl = page.url()
-      const match = (targetInfos ?? []).find((t: { url: string }) => t.url === pageUrl || pageUrl === 'about:blank')
-      if (match) targetId = match.targetId
-    } catch { /* fall through */ }
-    finally { if (session) await session.detach().catch(() => {}) }
-  }
-
-  if (targetId) {
-    const seedPage = context.pages().find(p => p !== page) ?? page
-    let session: import('@playwright/test').CDPSession | null = null
-    try {
-      session = await context.newCDPSession(seedPage)
-      await (session.send as any)('Target.closeTarget', { targetId })
-      _pageTargetMap.delete(page)
-      return // Success
-    } catch { /* fall back */ }
-    finally { if (session) await session.detach().catch(() => {}) }
-  }
-
-  // Ultimate fallback: navigate away + emit close
   const dismissDlg = (d: import('playwright-core').Dialog) => d.dismiss().catch(() => {})
   page.on('dialog', dismissDlg)
   try { await page.goto('about:blank') } catch {}

@@ -97,10 +97,9 @@ export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: bo
   }
 
   // newPage：
-  //   - 非默认 ctx（browser.newContext()）→ 总是 realNewPage()
-  //   - 默认 ctx 空 → realNewPage()（兼容 browser.newPage 路径）
-  //   - 默认 ctx 已有页面 → createPageViaCDP（Target.createTarget via CDP；已验证稳定）
-  //   - createPageViaCDP 失败 → reset seedPage to about:blank
+  //   优先复用已有的 about:blank 页面（页面池），避免创建新 browser tab。
+  //   Target.createTarget 会创建对用户可见的 tab，且 ArkWeb 的 Target.closeTarget
+  //   不会视觉关闭 tab，导致 tab 累积。只有无可用空白页时才回退到 createPageViaCDP。
   const realNewPage = (ctx.newPage as Function).bind(ctx)
   const wrapPage = async (p: import('@playwright/test').Page) => {
     if (!(p as any).__ohosPageClosePatch) {
@@ -122,6 +121,13 @@ export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: bo
       return await wrapPage(p)
     }
 
+    // Page pool: prefer reusing an existing about:blank page
+    const idleBlank = ctx.pages().find(p => p !== seedPage && p.url() === 'about:blank')
+    if (idleBlank) {
+      return await wrapPage(idleBlank)
+    }
+
+    // No blank page available — create one as last resort
     const newP = await createPageViaCDP(ctx, seedPage)
     if (newP) {
       if (!(newP as any).__ohosPageClosePatch) {
@@ -136,7 +142,7 @@ export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: bo
       return newP
     }
 
-    // Fallback：reset seedPage to about:blank
+    // Ultimate fallback：reset seedPage to about:blank
     await clearBeforeunload(seedPage)
     const dismissDlg = (d: import('playwright-core').Dialog) => d.dismiss().catch(() => {})
     seedPage.on('dialog', dismissDlg)
