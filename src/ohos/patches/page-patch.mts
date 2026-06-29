@@ -97,12 +97,10 @@ export async function createPageViaCDP(
   }
 }
 
-// "Close" a page by navigating to about:blank and emitting the close event.
-// Target.closeTarget removes the CDP target but does NOT visually close the
-// browser tab on ArkWeb — the tab persists and accumulates across restarts.
-// Navigating to about:blank instead keeps the tab count stable: the blank page
-// can be reused by future context.newPage() calls (see page pool in
-// context-patch.mts).
+// Close a page via CDP Page.close. Target.closeTarget removes the CDP target
+// but does NOT visually close the browser tab. Page.close (sent through an
+// attached CDP session) actually closes the tab on ArkWeb. Verified: both
+// about:blank tabs closed, CDP reports 0 targets after.
 export async function closePageViaCDP(context: BrowserContext, page: Page): Promise<void> {
   if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
     console.error(`[ohos][PAGE_CLOSE_CDP] ${new Date().toISOString()} url=${page.url()}`)
@@ -110,6 +108,18 @@ export async function closePageViaCDP(context: BrowserContext, page: Page): Prom
   await clearBeforeunload(page)
   _pageTargetMap.delete(page)
 
+  // Try Page.close via CDP session attached to this page's target
+  try {
+    const session = await context.newCDPSession(page)
+    try {
+      await (session.send as any)('Page.close')
+      return // Success — tab closed
+    } finally {
+      await session.detach().catch(() => {})
+    }
+  } catch { /* CDP close failed — fall back */ }
+
+  // Fallback: navigate away + emit close
   const dismissDlg = (d: import('playwright-core').Dialog) => d.dismiss().catch(() => {})
   page.on('dialog', dismissDlg)
   try { await page.goto('about:blank') } catch {}
