@@ -95,6 +95,12 @@ export const test = base.extend<{
     use: (c: BrowserContext) => Promise<void>,
     testInfo: { project: { use: { baseURL?: string } } },
   ) => {
+    // Force a health-check on the device before reading the context. ArkWeb's
+    // disconnect can land between tests; the worker-scoped `browser` proxy will
+    // return null __cdpDefaultContext on a stale realBrowser. device.browser()
+    // probes the cached endpoint and reconnects if needed, repopulating
+    // __cdpDefaultContext on the fresh realBrowser before we read it.
+    await getOhosDevice().browser()
     // __cdpDefaultContext: connectOverCDP 时预存的 ArkWeb 默认 context
     // browser.contexts() 已被 applyBrowserPatches 过滤掉该 context（对齐 launched browser 行为）
     const ctx = (browser as any).__cdpDefaultContext ?? browser.contexts()[0]
