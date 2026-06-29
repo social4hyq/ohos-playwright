@@ -283,17 +283,23 @@ export class OhosDeviceConnection {
     console.log(`[ohos] CDP ready: ${info.Browser}`)
 
     let openedNewTab = false
+    // When the browser is already running with pages, reuse existing tabs
+    // instead of opening a new one. Each launchBrowser() creates a visible
+    // browser tab that ArkWeb cannot close via CDP (closeTarget/Page.close
+    // only affect CDP targets, not the browser UI). These tabs accumulate
+    // across sessions and never disappear.
     if (browserWasRunning) {
       const listBefore = await this.cdpGet(port, '/json/list')
       const countBefore = this._countPages(listBefore.body ?? '[]')
-      if (countBefore > 0) {
+      if (countBefore === 0) {
         this.launchBrowser()
         await this.retry(async () => {
           const r = await this.cdpGet(port, '/json/list')
-          return this._countPages(r.body ?? '[]') > countBefore ? true : null
+          return this._countPages(r.body ?? '[]') > 0 ? true : null
         }, { max: 10, interval: 500, label: 'new tab did not appear' })
         openedNewTab = true
       }
+      // countBefore > 0: reuse existing tabs, don't create new ones
     }
 
     const endpoint = `http://127.0.0.1:${port}`
