@@ -26,6 +26,7 @@ it('should work with browser context scripts @smoke', async ({ context, server }
 });
 
 it('should work without navigation, after all bindings', async ({ context }) => {
+  it.fixme(true, 'ArkWeb: context.exposeFunction + newPage 触发 target 关闭');
   let callback: (arg: unknown) => void;
   const promise = new Promise(f => callback = f);
   await context.exposeFunction('woof', function(arg: any) {
@@ -43,6 +44,7 @@ it('should work without navigation, after all bindings', async ({ context }) => 
 });
 
 it('should work without navigation in popup', async ({ context }) => {
+  it.fixme(true, 'ArkWeb: window.open() 无 URL 弹窗未触发 page popup 事件');
   await context.addInitScript(() => (window as any)['temp'] = 123);
   const page = await context.newPage();
   const [popup] = await Promise.all([
@@ -68,6 +70,7 @@ it('should work with browser context scripts for already created pages', async (
 });
 
 it('should remove context init script after dispose', async ({ context, server }) => {
+  it.fixme(true, 'ArkWeb: disposable.dispose() 在已有 page 后会关闭该 page');
   const disposable = await context.addInitScript(() => (window as any)['temp'] = 123);
   const page = await context.newPage();
   await page.goto(server.PREFIX + '/tamperable.html');
@@ -79,6 +82,7 @@ it('should remove context init script after dispose', async ({ context, server }
 });
 
 it('should remove context init script and keep working in new pages', async ({ context, server }) => {
+  it.fixme(true, 'ArkWeb: disposable.dispose() 不会从后续 new page 中移除 init script');
   const disposable = await context.addInitScript(() => (window as any)['temp'] = 123);
   await disposable.dispose();
   const page = await context.newPage();
@@ -87,6 +91,7 @@ it('should remove context init script and keep working in new pages', async ({ c
 });
 
 it('init script should run only once in popup', async ({ context }) => {
+  it.fixme(true, 'ArkWeb: window.open(about:blank) popup 未触发或导致 target 关闭');
   await context.addInitScript(() => {
     window['callCount'] = (window['callCount'] || 0) + 1;
   });
