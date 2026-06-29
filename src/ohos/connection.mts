@@ -85,8 +85,8 @@ export class OhosDeviceConnection {
 
   private launchBrowser(): void {
     // CustomTabAbility: single-page browser, no tab bar, no session restore.
-    // Set OHOS_PW_CUSTOM_TAB=1 to use for E2E tests (avoids tab accumulation).
-    const ability = process.env.OHOS_PW_CUSTOM_TAB ? 'CustomTabAbility' : 'MainAbility'
+    // Default for E2E testing. Set OHOS_PW_MAIN_BROWSER=1 for full browser UI.
+    const ability = process.env.OHOS_PW_MAIN_BROWSER ? 'MainAbility' : 'CustomTabAbility'
     this.shellOnDevice(
       `aa start -b ${this.BUNDLE} -m entry -a ${ability} -U ${this.LAUNCH_URL}`)
   }
@@ -256,11 +256,6 @@ export class OhosDeviceConnection {
   async connect(): Promise<string> {
     await this.ensureDeviceConnected()
     console.log(`[ohos] locating ${this.BUNDLE}...`)
-
-    // Wipe browser session data to prevent old tabs from being restored.
-    // ArkWeb's CDP cannot close browser UI tabs — the only reliable way to
-    // start clean is to clear session data before connecting.
-    this.shellOnDevice(`bm clean -n ${this.BUNDLE} -d`)
 
     let pid = this.findBrowserPid()
     const browserWasRunning = !!pid
