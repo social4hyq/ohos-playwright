@@ -97,10 +97,9 @@ export async function createPageViaCDP(
   }
 }
 
-// Close a page via CDP Page.close. Target.closeTarget removes the CDP target
-// but does NOT visually close the browser tab. Page.close (sent through an
-// attached CDP session) actually closes the tab on ArkWeb. Verified: both
-// about:blank tabs closed, CDP reports 0 targets after.
+// Close a page. Uses CDP Page.close for extra tabs (verified to actually close
+// the browser tab), but navigates to about:blank for the LAST page — closing it
+// would kill the CDP connection.
 export async function closePageViaCDP(context: BrowserContext, page: Page): Promise<void> {
   if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
     console.error(`[ohos][PAGE_CLOSE_CDP] ${new Date().toISOString()} url=${page.url()}`)
@@ -108,18 +107,19 @@ export async function closePageViaCDP(context: BrowserContext, page: Page): Prom
   await clearBeforeunload(page)
   _pageTargetMap.delete(page)
 
-  // Try Page.close via CDP session attached to this page's target
-  try {
-    const session = await context.newCDPSession(page)
-    try {
-      await (session.send as any)('Page.close')
-      return // Success — tab closed
-    } finally {
-      await session.detach().catch(() => {})
-    }
-  } catch { /* CDP close failed — fall back */ }
+  const allPages = context.pages()
+  const isOnlyPage = allPages.length === 1 && allPages[0] === page
 
-  // Fallback: navigate away + emit close
+  if (!isOnlyPage) {
+    // Extra page: close via CDP Page.close (actually closes the browser tab)
+    try {
+      const session = await context.newCDPSession(page)
+      try { await (session.send as any)('Page.close'); return }
+      finally { await session.detach().catch(() => {}) }
+    } catch { /* fall through to navigate-to-blank */ }
+  }
+
+  // Last page or CDP close failed: navigate to about:blank + emit close
   const dismissDlg = (d: import('playwright-core').Dialog) => d.dismiss().catch(() => {})
   page.on('dialog', dismissDlg)
   try { await page.goto('about:blank') } catch {}
