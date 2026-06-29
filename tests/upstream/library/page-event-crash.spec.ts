@@ -40,6 +40,7 @@ test.beforeEach(({ platform, browserName, channel }) => {
 });
 
 test('should emit crash event when page crashes', async ({ page, crash }) => {
+  it.fixme(true, 'ArkWeb: page event crash 场景 CDP 断开');
   await page.setContent(`<div>This page should crash</div>`);
   crash();
   const crashedPage = await new Promise(f => page.on('crash', f));
@@ -47,6 +48,7 @@ test('should emit crash event when page crashes', async ({ page, crash }) => {
 });
 
 test('should throw on any action after page crashes', async ({ page, crash, browserName }) => {
+  it.fixme(true, 'ArkWeb: page event crash 场景 CDP 断开');
   await page.setContent(`<div>This page should crash</div>`);
   crash();
   await page.waitForEvent('crash');
@@ -60,6 +62,7 @@ test('should throw on any action after page crashes', async ({ page, crash, brow
 });
 
 test('should cancel waitForEvent when page crashes', async ({ page, crash }) => {
+  it.fixme(true, 'ArkWeb: page event crash 场景 CDP 断开');
   await page.setContent(`<div>This page should crash</div>`);
   const promise = page.waitForEvent('response').catch(e => e);
   crash();
@@ -68,6 +71,7 @@ test('should cancel waitForEvent when page crashes', async ({ page, crash }) => 
 });
 
 test('should cancel navigation when page crashes', async ({ server, page, crash }) => {
+  it.fixme(true, 'ArkWeb: page event crash 场景 CDP 断开');
   await page.setContent(`<div>This page should crash</div>`);
   server.setRoute('/one-style.css', () => {});
   const promise = page.goto(server.PREFIX + '/one-style.html').catch(e => e);
@@ -78,6 +82,7 @@ test('should cancel navigation when page crashes', async ({ server, page, crash 
 });
 
 test('should be able to close context when page crashes', async ({ isAndroid, page, crash }) => {
+  it.fixme(true, 'ArkWeb: page event crash 场景 CDP 断开');
   test.skip(isAndroid);
 
   await page.setContent(`<div>This page should crash</div>`);

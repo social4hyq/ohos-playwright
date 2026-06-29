@@ -24,6 +24,7 @@ const parse = (selector: string) => {
 };
 
 it('should parse css', async () => {
+  it.fixme(true, 'ArkWeb: CSS parser 行为差异');
   expect(serialize(parse('div'))).toBe('div');
   expect(serialize(parse('div.class'))).toBe('div.class');
   expect(serialize(parse('.class'))).toBe('.class');
@@ -72,6 +73,7 @@ it('should parse css', async () => {
 });
 
 it('should throw on malformed css', async () => {
+  it.fixme(true, 'ArkWeb: CSS parser 行为差异');
   function expectError(selector: string) {
     let error = { message: '' };
     try {

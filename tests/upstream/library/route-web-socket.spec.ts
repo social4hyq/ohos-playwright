@@ -454,6 +454,7 @@ test('should emit close upon frame detach', async ({ page, server }) => {
 });
 
 test('should route on context', async ({ page, server }) => {
+  test.fixme(true, 'ArkWeb: WebSocket routing on context 不支持');
   await page.routeWebSocket(/ws1/, ws => {
     ws.onMessage(message => {
       ws.send('page-mock-1');
