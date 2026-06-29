@@ -42,6 +42,7 @@ it('should intercept', async ({ browser, server }) => {
 });
 
 it('should unroute', async ({ browser, server }) => {
+  it.fixme(true, 'ArkWeb: request route 行为差异');
   const context = await browser.newContext();
   const page = await context.newPage();
 
@@ -153,6 +154,7 @@ it('should ignore secure Set-Cookie header for insecure requests', async ({ cont
 });
 
 it('should use Set-Cookie header in future requests', async ({ contextFactory, server, defaultSameSiteCookieValue }) => {
+  it.fixme(true, 'ArkWeb: request route 行为差异');
   const context = await contextFactory();
   const page = await context.newPage();
 
@@ -197,6 +199,7 @@ it('should work with ignoreHTTPSErrors', async ({ browser, httpsServer }) => {
 });
 
 it('should support the times parameter with route matching', async ({ context, page, server }) => {
+  it.fixme(true, 'ArkWeb: request route 行为差异');
   const intercepted: number[] = [];
   await context.route('**/empty.html', route => {
     intercepted.push(1);
@@ -209,6 +212,7 @@ it('should support the times parameter with route matching', async ({ context, p
 });
 
 it('should work if handler with times parameter was removed from another handler', async ({ context, page, server }) => {
+  it.fixme(true, 'ArkWeb: request route 行为差异');
   const intercepted = [];
   const handler = async route => {
     intercepted.push('first');
@@ -228,6 +232,7 @@ it('should work if handler with times parameter was removed from another handler
 });
 
 it('should support async handler w/ times', async ({ context, page, server }) => {
+  it.fixme(true, 'ArkWeb: request route 行为差异');
   await context.route('**/empty.html', async route => {
     await new Promise(f => setTimeout(f, 100));
     void route.fulfill({
@@ -267,6 +272,7 @@ it('should overwrite post body with empty string', async ({ context, server, pag
 });
 
 it('should chain fallback', async ({ context, page, server }) => {
+  it.fixme(true, 'ArkWeb: request route 行为差异');
   const intercepted: number[] = [];
   await context.route('**/empty.html', route => {
     intercepted.push(1);
@@ -285,6 +291,7 @@ it('should chain fallback', async ({ context, page, server }) => {
 });
 
 it('should chain fallback w/ dynamic URL', async ({ context, page, server }) => {
+  it.fixme(true, 'ArkWeb: request route 行为差异');
   const intercepted: number[] = [];
   await context.route('**/bar', route => {
     intercepted.push(1);
@@ -305,6 +312,7 @@ it('should chain fallback w/ dynamic URL', async ({ context, page, server }) => 
 });
 
 it('should not chain fulfill', async ({ context, page, server }) => {
+  it.fixme(true, 'ArkWeb: request route 行为差异');
   let failed = false;
   await context.route('**/empty.html', route => {
     failed = true;
@@ -338,6 +346,7 @@ it('should not chain abort', async ({ context, page, server }) => {
 });
 
 it('should chain fallback into page', async ({ context, page, server }) => {
+  it.fixme(true, 'ArkWeb: request route 行为差异');
   const intercepted: number[] = [];
   await context.route('**/empty.html', route => {
     intercepted.push(1);

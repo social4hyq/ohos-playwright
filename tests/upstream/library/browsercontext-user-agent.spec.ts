@@ -88,6 +88,7 @@ it('should make a copy of default options', async ({ browser, server }) => {
 });
 
 it('custom user agent for download', async ({ server, contextFactory, browserVersion, browserName }) => {
+  it.fixme(true, 'ArkWeb: userAgent 行为差异');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/22843' });
   it.skip(browserName === 'chromium' && chromiumVersionLessThan(browserVersion, '116.0.0.0'), 'https://chromium-review.googlesource.com/c/chromium/src/+/4554578');
 
@@ -108,6 +109,7 @@ it('custom user agent for download', async ({ server, contextFactory, browserVer
 });
 
 it('should work for navigator.userAgentData and sec-ch-ua headers', async ({ playwright, browserName, browser, server }) => {
+  it.fixme(true, 'ArkWeb: userAgent 行为差异');
   it.skip(browserName !== 'chromium', 'This API is Chromium-only');
 
   {

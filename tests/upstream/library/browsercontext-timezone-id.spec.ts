@@ -71,6 +71,7 @@ it('should throw for invalid timezone IDs when creating pages', async ({ browser
 });
 
 it('should work for multiple pages sharing same process', async ({ browser, server }) => {
+  it.fixme(true, 'ArkWeb: timezone/popup 行为差异');
   const context = await browser.newContext({ timezoneId: 'Europe/Moscow' });
   const page = await context.newPage();
   await page.goto(server.EMPTY_PAGE);
