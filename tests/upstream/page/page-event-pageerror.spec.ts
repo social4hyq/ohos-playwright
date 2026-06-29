@@ -18,7 +18,6 @@
 import { test as it, expect } from '../fixtures/upstream-fixture.js';
 
 it('should fire', async ({ page, server, browserName, isBidi }) => {
-  it.fixme(true, 'ArkWeb: pageerror 事件未触发');
   const url = server.PREFIX + '/error.html';
   const [error] = await Promise.all([
     page.waitForEvent('pageerror'),
@@ -48,7 +47,6 @@ it('should fire', async ({ page, server, browserName, isBidi }) => {
 });
 
 it('should not receive console message for pageError', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: pageerror 事件未触发');
   const messages = [];
   page.on('console', e => messages.push(e));
   await Promise.all([
@@ -59,7 +57,6 @@ it('should not receive console message for pageError', async ({ page, server }) 
 });
 
 it('should contain sourceURL', async ({ page, server, browserName }) => {
-  it.fixme(true, 'ArkWeb: pageerror 事件未触发');
   it.fail(browserName === 'webkit');
 
   const [error] = await Promise.all([
@@ -143,12 +140,10 @@ it('should handle window', async ({ page, browserName }) => {
 });
 
 it('should remove a listener of a non-existing event handler', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: pageerror 事件未触发');
   page.removeListener('pageerror', () => {});
 });
 
 it('should emit error from unhandled rejects', async ({ page, browserName }) => {
-  it.fixme(true, 'ArkWeb: pageerror 事件未触发');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/14165' });
   const [error] = await Promise.all([
     page.waitForEvent('pageerror'),
