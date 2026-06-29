@@ -121,9 +121,6 @@ export const test = base.extend<{
     applyContextPatches(ctx)
 
     // 每次测试前重置共享 context 状态。
-    // Storage.clearDataForOrigin('*', 'all') 清空所有 origin 的 cookies、
-    // localStorage、indexedDB、service worker — 比 clearCookies 更彻底。
-    // 通过 CDP 发送（需从已有页面获取 session）。
     await ctx.clearCookies().catch(() => {})
     const pages = ctx.pages()
     if (pages.length > 0) {
@@ -135,13 +132,24 @@ export const test = base.extend<{
             storageTypes: 'all',
           })
         } catch { /* best-effort */ }
+
+        // 清理所有残留的 about:blank tab（只保留 1 个 CDP 锚点页）。
+        // 上一次测试/session 的 closePageViaCDP fallback 可能留下了未关闭的 target。
+        try {
+          const { targetInfos } = await (cdp.send as any)('Target.getTargets') as any
+          const blankTabs = (targetInfos ?? []).filter((t: any) => t.type === 'page' && t.url === 'about:blank')
+          for (let i = 1; i < blankTabs.length; i++) {
+            await (cdp.send as any)('Target.closeTarget', { targetId: blankTabs[i].targetId }).catch(() => {})
+          }
+        } catch { /* best-effort */ }
+
         await cdp.detach().catch(() => {})
       }
     }
 
     await use(ctx)
 
-    // 测试后清理绑定追踪集合。
+    // 测试后清理绑定追踪。
     const bindings: Set<string> | undefined = (ctx as any).__ohosBindings
     if (bindings?.size) bindings.clear()
   },
