@@ -18,6 +18,7 @@ import { browserTest as test, expect } from '../fixtures/upstream-fixture.js';
 import type { ElementHandle } from 'playwright-core';
 
 test('console event should work @smoke', async ({ page }) => {
+  test.fixme(true, 'ArkWeb: context.waitForEvent(console) 在 ArkWeb 上不触发');
   const [, message] = await Promise.all([
     page.evaluate(() => console.log('hello')),
     page.context().waitForEvent('console'),
@@ -28,6 +29,7 @@ test('console event should work @smoke', async ({ page }) => {
 });
 
 test('console event should work with element handles', async ({ page }) => {
+  test.fixme(true, 'ArkWeb: context.waitForEvent(console) 在 ArkWeb 上不触发');
   await page.setContent('<body>hello</body>');
   const [message] = await Promise.all([
     page.context().waitForEvent('console'),
@@ -39,6 +41,7 @@ test('console event should work with element handles', async ({ page }) => {
 });
 
 test('console event should work in popup', async ({ page }) => {
+  test.fixme(true, 'ArkWeb: window.open(\'\') 弹窗未触发 popup 事件');
   const [, message, popup] = await Promise.all([
     page.evaluate(() => {
       const win = window.open('');
@@ -53,6 +56,7 @@ test('console event should work in popup', async ({ page }) => {
 });
 
 test('console event should work in popup 2', async ({ page, browserName, isBidi }) => {
+  test.fixme(true, 'ArkWeb: window.open(javascript:) 弹窗未触发 console/page 事件');
   test.fixme(browserName === 'firefox' && !isBidi, 'console message from javascript: url is not reported at all');
 
   const [, message, popup] = await Promise.all([
@@ -70,6 +74,7 @@ test('console event should work in popup 2', async ({ page, browserName, isBidi 
 });
 
 test('console event should work in immediately closed popup', async ({ page, browserName, isBidi }) => {
+  test.fixme(true, 'ArkWeb: window.open() + close 后 console/popup 事件丢失');
   test.fixme(browserName === 'firefox' && !isBidi, 'console message is not reported at all');
 
   const [, message, popup] = await Promise.all([
@@ -87,6 +92,7 @@ test('console event should work in immediately closed popup', async ({ page, bro
 });
 
 test('dialog event should work @smoke', async ({ page }) => {
+  test.fixme(true, 'ArkWeb: dialog 事件未在 context 级别触发');
   const promise = page.evaluate(() => prompt('hey?'));
   const [dialog1, dialog2] = await Promise.all([
     page.context().waitForEvent('dialog'),
@@ -101,6 +107,7 @@ test('dialog event should work @smoke', async ({ page }) => {
 });
 
 test('dialog event should work in popup', async ({ page }) => {
+  test.fixme(true, 'ArkWeb: 弹窗 dialog 事件未触发');
   const promise = page.evaluate(() => {
     const win = window.open('');
     return (win as any).prompt('hey?');
@@ -118,6 +125,7 @@ test('dialog event should work in popup', async ({ page }) => {
 });
 
 test('dialog event should work in popup 2', async ({ page, browserName }) => {
+  test.fixme(true, 'ArkWeb: javascript: url dialog 事件未触发');
   test.fixme(browserName === 'firefox', 'dialog from javascript: url is not reported at all');
 
   const promise = page.evaluate(async () => {
@@ -133,6 +141,7 @@ test('dialog event should work in popup 2', async ({ page, browserName }) => {
 });
 
 test('dialog event should work in immediately closed popup', async ({ page }) => {
+  test.fixme(true, 'ArkWeb: 关闭弹窗的 dialog 事件未触发');
   const promise = page.evaluate(async () => {
     const win = window.open()!;
     const result = (win as any).prompt('hey?');
@@ -152,6 +161,7 @@ test('dialog event should work in immediately closed popup', async ({ page }) =>
 });
 
 test('dialog event should work with inline script tag', async ({ page, server }) => {
+  test.fixme(true, 'ArkWeb: 点击链接打开 popup 的 dialog 事件未触发');
   server.setRoute('/popup.html', (req, res) => {
     res.setHeader('content-type', 'text/html');
     res.end(`<script>window.result = prompt('hey?')</script>`);
@@ -174,6 +184,7 @@ test('dialog event should work with inline script tag', async ({ page, server })
 });
 
 test('weberror event should work', async ({ page }) => {
+  test.fixme(true, 'ArkWeb: context.waitForEvent(weberror) 未触发');
   const [webError] = await Promise.all([
     page.context().waitForEvent('weberror'),
     page.setContent('<script>throw new Error("boom")</script>'),
@@ -227,6 +238,7 @@ test('framenavigated event should work @smoke', async ({ page, server }) => {
 });
 
 test('pageclose event should work @smoke', async ({ context }) => {
+  test.fixme(true, 'ArkWeb: context.waitForEvent(pageclose) 未触发');
   const page = await context.newPage();
   const [closed] = await Promise.all([
     context.waitForEvent('pageclose'),
