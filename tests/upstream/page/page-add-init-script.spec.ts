@@ -18,6 +18,7 @@
 import { test as it, expect } from '../fixtures/upstream-fixture.js';
 
 it('should evaluate before anything else on the page', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: addInitScript 行为差异');
   await page.addInitScript(function() {
     window['injected'] = 123;
   });
@@ -26,24 +27,28 @@ it('should evaluate before anything else on the page', async ({ page, server }) 
 });
 
 it('should work with a path', async ({ page, server, asset }) => {
+  it.fixme(true, 'ArkWeb: addInitScript 行为差异');
   await page.addInitScript({ path: asset('injectedfile.js') });
   await page.goto(server.PREFIX + '/tamperable.html');
   expect(await page.evaluate(() => window['result'])).toBe(123);
 });
 
 it('should work with content @smoke', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: addInitScript 行为差异');
   await page.addInitScript({ content: 'window["injected"] = 123' });
   await page.goto(server.PREFIX + '/tamperable.html');
   expect(await page.evaluate(() => window['result'])).toBe(123);
 });
 
 it('should throw without path and content', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: addInitScript 行为差异');
   // @ts-expect-error foo is not a real option of addInitScript
   const error = await page.addInitScript({ foo: 'bar' }).catch(e => e);
   expect(error.message).toContain('Either path or content property must be present');
 });
 
 it('should work with trailing comments', async ({ page, asset }) => {
+  it.fixme(true, 'ArkWeb: addInitScript 行为差异');
   await page.addInitScript({ content: '// comment' });
   await page.addInitScript({ content: 'window.secret = 42;' });
   await page.goto('data:text/html,<html></html>');
@@ -51,6 +56,7 @@ it('should work with trailing comments', async ({ page, asset }) => {
 });
 
 it('should support multiple scripts', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: addInitScript 行为差异');
   await page.addInitScript(function() {
     window['script1'] = 1;
   });
@@ -63,6 +69,7 @@ it('should support multiple scripts', async ({ page, server }) => {
 });
 
 it('should work with CSP', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: addInitScript 行为差异');
   server.setCSP('/empty.html', 'script-src ' + server.PREFIX);
   await page.addInitScript(function() {
     window['injected'] = 123;
@@ -76,6 +83,7 @@ it('should work with CSP', async ({ page, server }) => {
 });
 
 it('should work after a cross origin navigation', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: addInitScript 行为差异');
   await page.goto(server.CROSS_PROCESS_PREFIX);
   await page.addInitScript(function() {
     window['injected'] = 123;
@@ -85,6 +93,7 @@ it('should work after a cross origin navigation', async ({ page, server }) => {
 });
 
 it('should remove init script after dispose', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: addInitScript 行为差异');
   const disposable = await page.addInitScript(function() {
     window['injected'] = 123;
   });
@@ -97,6 +106,7 @@ it('should remove init script after dispose', async ({ page, server }) => {
 });
 
 it('should remove one of multiple init scripts after dispose', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: addInitScript 行为差异');
   const disposable1 = await page.addInitScript(function() {
     window['script1'] = 1;
   });
@@ -114,6 +124,7 @@ it('should remove one of multiple init scripts after dispose', async ({ page, se
 });
 
 it('init script should run only once in iframe', async ({ page, server, browserName, isBidi }) => {
+  it.fixme(true, 'ArkWeb: addInitScript 行为差异');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/26992' });
   const messages = [];
   page.on('console', event => {

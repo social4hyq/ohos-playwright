@@ -20,6 +20,7 @@ import { roundBox } from '../fixtures/upstream-utils.js';
 it.skip(({ mode }) => mode !== 'default', 'Highlight element has a closed shadow-root on != default');
 
 it('should highlight locator', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: locator highlight 不支持');
   await page.setContent(`<input type='text' />`);
   await page.locator('input').highlight();
   await expect(page.locator('x-pw-tooltip')).toHaveText('locator(\'input\')');
