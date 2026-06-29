@@ -133,6 +133,25 @@ export const test = base.extend<{
           })
         } catch { /* best-effort */ }
 
+        // 清理多余的 about:blank 页面（只保留第一个锚点页）。
+        // browser.newContext() 会遗留 blank 页面，通过 CDP closeTarget 移除
+        // 它们从 context.pages() 中，防止 Playwright 层面累积。
+        if (pages.length > 1) {
+          try {
+            const { targetInfos } = await (cdp.send as any)('Target.getTargets') as any
+            const blankTargets = (targetInfos ?? []).filter((t: any) => t.type === 'page' && t.url === 'about:blank')
+            for (let i = 1; i < blankTargets.length; i++) {
+              await (cdp.send as any)('Target.closeTarget', { targetId: blankTargets[i].targetId }).catch(() => {})
+            }
+            // 清理 Playwright 过期 page 引用（ArkWeb 不发送 targetDestroyed）
+            for (const p of pages.slice(1)) {
+              if (p.url() === 'about:blank') {
+                (p as unknown as { _onClose: () => void })._onClose()
+              }
+            }
+          } catch { /* best-effort */ }
+        }
+
         await cdp.detach().catch(() => {})
       }
     }
