@@ -120,10 +120,14 @@ export const test = base.extend<{
     // fixture runs before device.browser() completes patching.
     applyContextPatches(ctx)
 
-    // 每次测试前清空 cookie（共享 context 的兜底，真实 context 不需要此步）
+    // 每次测试前清空 cookie（共享 context 的兜底）。
     await ctx.clearCookies().catch(() => {})
 
     await use(ctx)
+
+    // 测试后清理绑定追踪集合。
+    const bindings: Set<string> | undefined = (ctx as any).__ohosBindings
+    if (bindings?.size) bindings.clear()
   },
 
   page: async (

@@ -10,6 +10,29 @@ export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: bo
   ;(ctx as any).__ohosPatch = true
   const isDefault = !!opts?.isDefault
 
+  // Track exposed bindings/functions so the fixture can clear names between
+  // tests. ArkWeb doesn't support Target.disposeBrowserContext, so context-level
+  // bindings accumulate. Names are tracked for conflict detection; the actual
+  // bindings live until worker recycle.
+  if (!(ctx as any).__ohosBindings) {
+    ;(ctx as any).__ohosBindings = new Set<string>()
+  }
+  const bindings: Set<string> = (ctx as any).__ohosBindings
+
+  // Intercept exposeBinding to track names
+  const origExposeBinding = (ctx.exposeBinding as Function).bind(ctx)
+  ;(ctx as any).exposeBinding = async (name: string, ...args: any[]) => {
+    bindings.add(name)
+    return origExposeBinding(name, ...args)
+  }
+
+  // Intercept exposeFunction to track names
+  const origExposeFunction = (ctx.exposeFunction as Function).bind(ctx)
+  ;(ctx as any).exposeFunction = async (name: string, ...args: any[]) => {
+    bindings.add(name)
+    return origExposeFunction(name, ...args)
+  }
+
   // ctx.browser() returns the realBrowser by default; rewrite to return the
   // OhosDevice proxy so identity checks like expect(browser).toBe(context.browser())
   // pass (fixture's `browser` is the same proxy). __ohosProxy is set by
