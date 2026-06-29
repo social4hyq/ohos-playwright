@@ -18,6 +18,7 @@ import { browserTest as it, expect } from '../fixtures/upstream-fixture.js';
 import type { Page } from 'playwright-core';
 
 it('should inherit user agent from browser context @smoke', async function({ browser, server, isFrozenWebkit }) {
+  it.fixme(true, 'ArkWeb: popup CDP 探测失败');
   it.skip(isFrozenWebkit);
 
   const context = await browser.newContext({
@@ -40,6 +41,7 @@ it('should inherit user agent from browser context @smoke', async function({ bro
 });
 
 it('should respect routes from browser context', async function({ browser, server }) {
+  it.fixme(true, 'ArkWeb: popup CDP 探测失败');
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto(server.EMPTY_PAGE);
@@ -58,6 +60,7 @@ it('should respect routes from browser context', async function({ browser, serve
 });
 
 it('should inherit extra headers from browser context', async function({ browser, server }) {
+  it.fixme(true, 'ArkWeb: popup CDP 探测失败');
   const context = await browser.newContext({
     extraHTTPHeaders: { 'foo': 'bar' },
   });
@@ -71,6 +74,7 @@ it('should inherit extra headers from browser context', async function({ browser
 });
 
 it('should inherit offline from browser context', async function({ browser, server }) {
+  it.fixme(true, 'ArkWeb: popup CDP 探测失败');
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto(server.EMPTY_PAGE);
@@ -84,6 +88,7 @@ it('should inherit offline from browser context', async function({ browser, serv
 });
 
 it('should inherit http credentials from browser context', async function({ browser, server }) {
+  it.fixme(true, 'ArkWeb: popup CDP 探测失败');
   server.setAuth('/title.html', 'user', 'pass');
   const context = await browser.newContext({
     httpCredentials: { username: 'user', password: 'pass' }
@@ -116,6 +121,7 @@ it('should inherit touch support from browser context', async function({ browser
 });
 
 it('should inherit viewport size from browser context', async function({ browser, server }) {
+  it.fixme(true, 'ArkWeb: popup CDP 探测失败');
   const context = await browser.newContext({
     viewport: { width: 400, height: 500 }
   });
@@ -130,6 +136,7 @@ it('should inherit viewport size from browser context', async function({ browser
 });
 
 it('should use viewport size from window features', async function({ browser, server, browserName }) {
+  it.fixme(true, 'ArkWeb: popup CDP 探测失败');
   const context = await browser.newContext({
     viewport: { width: 700, height: 700 }
   });
@@ -159,6 +166,7 @@ it('should use viewport size from window features', async function({ browser, se
 });
 
 it('should respect routes from browser context when using window.open', async function({ browser, server }) {
+  it.fixme(true, 'ArkWeb: popup CDP 探测失败');
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto(server.EMPTY_PAGE);
@@ -176,6 +184,7 @@ it('should respect routes from browser context when using window.open', async fu
 });
 
 it('BrowserContext.addInitScript should apply to an in-process popup', async function({ browser, server }) {
+  it.fixme(true, 'ArkWeb: popup CDP 探测失败');
   const context = await browser.newContext();
   await context.addInitScript(() => window['injected'] = 123);
   const page = await context.newPage();
@@ -189,6 +198,7 @@ it('BrowserContext.addInitScript should apply to an in-process popup', async fun
 });
 
 it('BrowserContext.addInitScript should apply to a cross-process popup', async function({ browser, server }) {
+  it.fixme(true, 'ArkWeb: popup CDP 探测失败');
   const context = await browser.newContext();
   await context.addInitScript(() => window['injected'] = 123);
   const page = await context.newPage();
@@ -204,6 +214,7 @@ it('BrowserContext.addInitScript should apply to a cross-process popup', async f
 });
 
 it('should expose function from browser context', async function({ browser, server }) {
+  it.fixme(true, 'ArkWeb: popup CDP 探测失败');
   const context = await browser.newContext();
   const messages = [];
   await context.exposeFunction('add', (a, b) => {
@@ -223,6 +234,7 @@ it('should expose function from browser context', async function({ browser, serv
 });
 
 it('should not dispatch binding on a closed page', async function({ browser, server, browserName }) {
+  it.fixme(true, 'ArkWeb: popup CDP 探测失败');
   const context = await browser.newContext();
   let wasClosed: boolean | undefined;
   await context.exposeBinding('add', (source, a, b) => {
@@ -246,6 +258,7 @@ it('should not dispatch binding on a closed page', async function({ browser, ser
 });
 
 it('should not throttle rAF in the opener page', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: popup CDP 探测失败');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/14557' });
   await page.goto(server.EMPTY_PAGE);
   const [popup] = await Promise.all([

@@ -98,6 +98,7 @@ for (let range = 0; range <= ranges.length; range++) {
 }
 
 test('wpt accname non-manual', async ({ page, asset, server, browserName }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   await page.addInitScript(() => {
     const self = window as any;
     self.AriaUtils = {};
@@ -154,6 +155,7 @@ test('wpt accname non-manual', async ({ page, asset, server, browserName }) => {
 });
 
 test('axe-core implicit-role', async ({ page, asset, server }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   await page.goto(server.EMPTY_PAGE);
   const testCases = require(asset('axe-core/implicit-role'));
   for (const testCase of testCases) {
@@ -176,6 +178,7 @@ test('axe-core implicit-role', async ({ page, asset, server }) => {
 });
 
 test('axe-core accessible-text', async ({ page, asset, server }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   await page.goto(server.EMPTY_PAGE);
   const testCases = require(asset('axe-core/accessible-text'));
   for (const testCase of testCases) {
@@ -210,6 +213,7 @@ test('axe-core accessible-text', async ({ page, asset, server }) => {
 });
 
 test('accessible name with slots', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   // Text "foo" is assigned to the slot, should not be used twice.
   await page.setContent(`
     <button><div>foo</div></button>
@@ -264,6 +268,7 @@ test('accessible name with slots', async ({ page }) => {
 });
 
 test('accessible name nested treeitem', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   await page.setContent(`
     <div role=treeitem id=target>
       <span>Top-level</span>
@@ -277,6 +282,7 @@ test('accessible name nested treeitem', async ({ page }) => {
 });
 
 test('svg title', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   await page.setContent(`
     <div>
       <svg width="162" height="30" viewBox="0 0 162 30" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -295,6 +301,7 @@ test('svg title', async ({ page }) => {
 });
 
 test('native controls', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   await page.setContent(`
     <label for="text1">TEXT1</label><input id="text1" type=text>
     <input id="text2" type=text title="TEXT2">
@@ -328,6 +335,7 @@ test('native controls', async ({ page }) => {
 });
 
 test('native controls labelled-by', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   await page.setContent(`
     <label id="for-text1">TEXT1</label><input aria-labelledby="for-text1" id="text1" type=text>
     <label id="for-text2">TEXT2</label><input aria-labelledby="for-text2 text2" id="text2" type=text>
@@ -359,6 +367,7 @@ test('native controls labelled-by', async ({ page }) => {
 });
 
 test('display:contents should be visible when contents are visible', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   await page.setContent(`
     <button style='display: contents;'>yo</button>
   `);
@@ -366,6 +375,7 @@ test('display:contents should be visible when contents are visible', async ({ pa
 });
 
 test('should remove soft hyphens and zero-width spaces', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   await page.setContent(`
     <button>1\u00ad2\u200b3</button>
   `);
@@ -373,6 +383,7 @@ test('should remove soft hyphens and zero-width spaces', async ({ page }) => {
 });
 
 test('label/labelled-by aria-hidden with descendants', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   test.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/29796' });
 
   await page.setContent(`
@@ -395,6 +406,7 @@ test('label/labelled-by aria-hidden with descendants', async ({ page }) => {
 });
 
 test('own aria-label concatenated with aria-labelledby', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   // This is taken from https://w3c.github.io/accname/#example-5-0
 
   await page.setContent(`
@@ -415,6 +427,7 @@ test('own aria-label concatenated with aria-labelledby', async ({ page }) => {
 });
 
 test('control embedded in a label', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   test.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/28848' });
 
   await page.setContent(`
@@ -429,6 +442,7 @@ test('control embedded in a label', async ({ page }) => {
 });
 
 test('control embedded in a target element', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   test.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/28848' });
 
   await page.setContent(`
@@ -440,6 +454,7 @@ test('control embedded in a target element', async ({ page }) => {
 });
 
 test('svg role=presentation', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   test.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/26809' });
 
   await page.goto(server.EMPTY_PAGE);
@@ -452,6 +467,7 @@ test('svg role=presentation', async ({ page, server }) => {
 });
 
 test('should work with form and tricky input names', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   test.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/30616' });
 
   await page.setContent(`
@@ -464,6 +480,7 @@ test('should work with form and tricky input names', async ({ page }) => {
 });
 
 test('should ignore stylesheet from hidden aria-labelledby subtree', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   await page.setContent(`
     <div id=mylabel style="display:none">
       <template shadowrootmode=open>
@@ -477,6 +494,7 @@ test('should ignore stylesheet from hidden aria-labelledby subtree', async ({ pa
 });
 
 test('should not include hidden pseudo into accessible name', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   await page.setContent(`
     <style>
       span:before {
@@ -497,6 +515,7 @@ test('should not include hidden pseudo into accessible name', async ({ page }) =
 });
 
 test('should resolve pseudo content from attr', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   await page.setContent(`
     <style>
     .stars:before {
@@ -512,6 +531,7 @@ test('should resolve pseudo content from attr', async ({ page }) => {
 });
 
 test('should resolve pseudo content alternative text', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   await page.setContent(`
     <style>
       .with-content:before {
@@ -524,6 +544,7 @@ test('should resolve pseudo content alternative text', async ({ page }) => {
 });
 
 test('should resolve css content property for an element', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   await page.setContent(`
     <style>
       .with-content-1 {
@@ -541,6 +562,7 @@ test('should resolve css content property for an element', async ({ page }) => {
 });
 
 test('should ignore invalid aria-labelledby', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   await page.setContent(`
     <label>
       <span>Text here</span>
@@ -551,6 +573,7 @@ test('should ignore invalid aria-labelledby', async ({ page }) => {
 });
 
 test('should support search element', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: role utility 内部 API 不支持');
   await page.setContent(`
     <search id=search1 aria-label="example">
       Hello

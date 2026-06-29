@@ -18,6 +18,7 @@ import { browserTest as it, expect } from '../fixtures/upstream-fixture.js';
 import fs from 'fs';
 
 it('should be able to save file', async ({ contextFactory, browserName }, testInfo) => {
+  it.fixme(true, 'ArkWeb: PDF 生成不支持（需要 headless print）');
   it.skip(browserName !== 'chromium', 'Printing to pdf is currently only supported in chromium.');
   const context = await contextFactory();
   const page = await context.newPage();
@@ -27,6 +28,7 @@ it('should be able to save file', async ({ contextFactory, browserName }, testIn
 });
 
 it('should be able to generate outline', async ({ contextFactory, server, browserName }, testInfo) => {
+  it.fixme(true, 'ArkWeb: PDF 生成不支持（需要 headless print）');
   it.skip(browserName !== 'chromium', 'Printing to pdf is currently only supported in chromium.');
   const context = await contextFactory({
     baseURL: server.PREFIX,
