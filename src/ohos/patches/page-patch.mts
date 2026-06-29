@@ -179,15 +179,9 @@ export async function installPageWrappers(
 
   // Override goto: connectOverCDP creates the server-side context with no baseURL in
   // its _options, so Playwright's internal Frame.goto cannot resolve relative paths —
-  // CDP rejects them as invalid. Resolve here before delegating to the real goto.
-  const savedGoto = (page as unknown as Record<string, unknown>)['goto'] as typeof page.goto
-  const origGoto = page.goto.bind(page)
-  ;(page as any).goto = async (url: string, options?: Parameters<typeof page.goto>[1]) => {
-    if (baseURL && url && !url.includes('://') && !url.startsWith('about:') && !url.startsWith('data:')) {
-      url = new URL(url, baseURL).toString()
-    }
-    return origGoto(url, options)
-  }
+  // CDP rejects them as invalid. fixture.mts sets ctx._options.baseURL, which Playwright
+  // uses internally (constructURLBasedOnBaseURL). Wrapper is a no-op now — kept for
+  // historical reasons; safe to remove if baseURL resolution is verified working.
 
   // Override goBack: Page.navigateToHistoryEntry hangs in ArkWeb (never resolves).
   // ArkWeb also does not emit Page.frameNavigated for history navigation, so waitForURL
@@ -327,7 +321,6 @@ export async function installPageWrappers(
   return async (opts?: { navigateTo?: string }) => {
     clearInterval(popupPoller)
     ;(page as unknown as { evaluate: unknown }).evaluate = savedEvaluate
-    ;(page as unknown as { goto: unknown }).goto = savedGoto
     ;(page as unknown as { close: unknown }).close = savedClose
     if (opts?.navigateTo) {
       // Clear all beforeunload handlers before navigating — ArkWeb shows a native
