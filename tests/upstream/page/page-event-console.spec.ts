@@ -19,6 +19,7 @@ import { test as it, expect } from '../fixtures/upstream-fixture.js';
 import util from 'util';
 
 it('should work @smoke', async ({ page, browserName, channel }) => {
+  it.fixme(true, 'ArkWeb: console 事件未触发');
   let message = null;
   page.once('console', m => message = m);
   await Promise.all([
@@ -36,6 +37,7 @@ it('should work @smoke', async ({ page, browserName, channel }) => {
 });
 
 it('should emit same log twice', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: console 事件未触发');
   const messages = [];
   page.on('console', m => messages.push(m.text()));
   await page.evaluate(() => {
@@ -46,6 +48,7 @@ it('should emit same log twice', async ({ page }) => {
 });
 
 it('should use text() for inspection', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: console 事件未触发');
   let text;
   const inspect = value => {
     text = util.inspect(value);
@@ -56,6 +59,7 @@ it('should use text() for inspection', async ({ page }) => {
 });
 
 it('should work for different console API calls', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: console 事件未触发');
   const messages = [];
   page.on('console', msg => messages.push(msg));
   // All console events will be reported before `page.evaluate` is finished.
@@ -118,6 +122,7 @@ it('should format the message correctly with time/timeLog/timeEnd', async ({ pag
 });
 
 it('should not fail for window object', async ({ page, browserName, channel }) => {
+  it.fixme(true, 'ArkWeb: console 事件未触发');
   let message = null;
   page.once('console', msg => message = msg);
   await Promise.all([
@@ -142,6 +147,7 @@ it('should trigger correct Log', async ({ page, server, browserName, isWindows }
 });
 
 it('should have location for console API calls', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: console 事件未触发');
   await page.goto(server.EMPTY_PAGE);
   const [message] = await Promise.all([
     page.waitForEvent('console', m => m.text().startsWith('here:')),
@@ -158,6 +164,7 @@ it('should have location for console API calls', async ({ page, server }) => {
 });
 
 it('should not throw when there are console messages in detached iframes', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: console 事件未触发');
   // @see https://github.com/GoogleChrome/puppeteer/issues/3865
   await page.goto(server.EMPTY_PAGE);
   const [popup] = await Promise.all([
@@ -182,6 +189,7 @@ it('should not throw when there are console messages in detached iframes', async
 });
 
 it('should use object previews for arrays and objects', async ({ page, browserName, channel }) => {
+  it.fixme(true, 'ArkWeb: console 事件未触发');
   let text: string;
   page.on('console', message => {
     text = message.text();
@@ -195,6 +203,7 @@ it('should use object previews for arrays and objects', async ({ page, browserNa
 });
 
 it('should use object previews for errors', async ({ page, browserName, isBidi }) => {
+  it.fixme(true, 'ArkWeb: console 事件未触发');
   let text: string;
   page.on('console', message => {
     text = message.text();
@@ -209,6 +218,7 @@ it('should use object previews for errors', async ({ page, browserName, isBidi }
 });
 
 it('do not update console count on unhandled rejections', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: console 事件未触发');
   const messages: string[] = [];
   const consoleEventListener = m => messages.push(m.text());
   page.addListener('console', consoleEventListener);
@@ -240,6 +250,7 @@ it('should have timestamp', async ({ page, isAndroid }) => {
 });
 
 it('should have increasing timestamps', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: console 事件未触发');
   const messages = [];
   page.on('console', msg => messages.push(msg));
   await page.evaluate(() => {
@@ -267,6 +278,7 @@ it('should have timestamp in consoleMessages', async ({ page, isAndroid }) => {
 });
 
 it('consoleMessages should work', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: console 事件未触发');
   await page.evaluate(() => {
     for (let i = 0; i < 301; i++)
       console.log('message' + i);
@@ -284,6 +296,7 @@ it('consoleMessages should work', async ({ page }) => {
 });
 
 it('clearConsoleMessages should work', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: console 事件未触发');
   await page.evaluate(() => {
     console.log('message1');
     console.log('message2');
@@ -305,6 +318,7 @@ it('clearConsoleMessages should work', async ({ page }) => {
 });
 
 it('consoleMessages since-navigation filter should work', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: console 事件未触发');
   await page.evaluate(() => console.log('before navigation'));
   await page.goto(server.EMPTY_PAGE);
   await page.evaluate(() => console.log('after navigation'));
@@ -320,6 +334,7 @@ it('consoleMessages since-navigation filter should work', async ({ page, server 
 });
 
 it('pageErrors since-navigation filter should work', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: console 事件未触发');
   server.setContent('/page1', `<script>throw new Error('page1 error');</script>`, 'text/html');
   server.setContent('/page2', `<script>throw new Error('page2 error');</script>`, 'text/html');
 

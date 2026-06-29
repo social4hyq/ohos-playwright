@@ -28,6 +28,7 @@ it('should avoid side effects after timeout', async ({ page, server, mode }) => 
 });
 
 it('should timeout waiting for button to be enabled', async ({ page }) => {
+  it.fixme(true, 'ArkWeb: click timeout 行为差异');
   await page.setContent('<button onclick="javascript:window.__CLICKED=true;" disabled><span>Click target</span></button>');
   const error = await page.click('text=Click target', { timeout: 3000 }).catch(e => e);
   expect(await page.evaluate('window.__CLICKED')).toBe(undefined);

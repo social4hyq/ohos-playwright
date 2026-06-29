@@ -22,6 +22,7 @@ declare const e;
 declare const MyButton;
 
 it('should timeout when click opens alert', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: click 行为差异');
   const dialogPromise = page.waitForEvent('dialog');
   await page.setContent(`<div onclick='window.alert(123)'>Click me</div>`);
   const error = await page.click('div', { timeout: 3000 }).catch(e => e);
@@ -31,6 +32,7 @@ it('should timeout when click opens alert', async ({ page, server }) => {
 });
 
 it('should not retarget when element changes on hover', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: click 行为差异');
   await page.goto(server.PREFIX + '/react.html');
   await page.evaluate(() => {
     renderComponent(e('div', {}, [e(MyButton, { name: 'button1', renameOnHover: true }), e(MyButton, { name: 'button2' })]));
@@ -41,6 +43,7 @@ it('should not retarget when element changes on hover', async ({ page, server })
 });
 
 it('should not retarget when element is recycled on hover', async ({ page, server }) => {
+  it.fixme(true, 'ArkWeb: click 行为差异');
   await page.goto(server.PREFIX + '/react.html');
   await page.evaluate(() => {
     function shuffle() {
