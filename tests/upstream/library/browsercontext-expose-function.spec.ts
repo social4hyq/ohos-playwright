@@ -19,12 +19,12 @@ import { contextTest as it, expect } from '../fixtures/upstream-fixture.js';
 
 it('expose binding should work', async ({ context }) => {
   let bindingSource: any;
-  await context.exposeBinding('add', (source, a, b) => {
+  await context.exposeBinding('ohosAdd', (source, a, b) => {
     bindingSource = source;
     return a + b;
   });
   const page = await context.newPage();
-  const result = await page.evaluate('add(5, 6)');
+  const result = await page.evaluate('ohosAdd(5, 6)');
   expect(bindingSource.context).toBe(context);
   expect(bindingSource.page).toBe(page);
   expect(bindingSource.frame).toBe(page.mainFrame());
@@ -32,7 +32,6 @@ it('expose binding should work', async ({ context }) => {
 });
 
 it('should work', async ({ context, server }) => {
-  it.fixme(true, 'ArkWeb: 共享 context 模式下前一个测试的 exposeBinding("add") 残留导致重复注册');
   await context.exposeFunction('add', (a: number, b: number) => a + b);
   const page = await context.newPage();
   await page.exposeFunction('mul', (a: number, b: number) => a * b);
