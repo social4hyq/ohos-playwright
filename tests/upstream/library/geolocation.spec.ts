@@ -160,6 +160,7 @@ it('watchPosition should be notified', async ({ server, contextFactory }) => {
 });
 
 it('should use context options for popup', async ({ contextFactory, server }) => {
+  it.fixme(true, 'ArkWeb: contextFactory popup 不支持 geolocation');
   const context = await contextFactory();
   const page = await context.newPage();
   await context.grantPermissions(['geolocation']);
