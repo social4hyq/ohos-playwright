@@ -84,9 +84,9 @@ export class OhosDeviceConnection {
   }
 
   private launchBrowser(): void {
-    // CustomTabAbility: single-page browser, no tab bar, no session restore.
+    // MainAbility: single-page browser, no tab bar, no session restore.
     // Default for E2E testing. Set OHOS_PW_MAIN_BROWSER=1 for full browser UI.
-    const ability = process.env.OHOS_PW_MAIN_BROWSER ? 'MainAbility' : 'CustomTabAbility'
+    const ability = process.env.OHOS_PW_MAIN_BROWSER ? 'MainAbility' : 'MainAbility'
     this.shellOnDevice(
       `aa start -b ${this.BUNDLE} -m entry -a ${ability} -U ${this.LAUNCH_URL}`)
   }
@@ -286,21 +286,11 @@ export class OhosDeviceConnection {
 
     let openedNewTab = false
     // When the browser is already running with pages, reuse existing tabs
-    // instead of opening a new one. Each launchBrowser() creates a visible
-    // browser tab that ArkWeb cannot close via CDP (closeTarget/Page.close
-    // only affect CDP targets, not the browser UI). These tabs accumulate
-    // across sessions and never disappear.
+    // instead of opening a new one. When running but has no open pages, the
+    // browser may be in a stale state and won't accept new intents.
     if (browserWasRunning) {
       const listBefore = await this.cdpGet(port, '/json/list')
       const countBefore = this._countPages(listBefore.body ?? '[]')
-      if (countBefore === 0) {
-        this.launchBrowser()
-        await this.retry(async () => {
-          const r = await this.cdpGet(port, '/json/list')
-          return this._countPages(r.body ?? '[]') > 0 ? true : null
-        }, { max: 10, interval: 500, label: 'new tab did not appear' })
-        openedNewTab = true
-      }
       // countBefore > 0: reuse existing tabs, don't create new ones
     }
 
