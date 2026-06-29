@@ -2,8 +2,26 @@
 // applyContextPatches — 对每个 BrowserContext 对象注入 ArkWeb 兼容补丁。
 // 幂等（__ohosPatch 标志防止重复调用）。
 
-import type { BrowserContext } from '@playwright/test'
+import type { BrowserContext, Page } from '@playwright/test'
 import { clearBeforeunload, makeSafePageClose, createPopupPage, createPageViaCDP, BEFOREUNLOAD_TRACKING_SCRIPT } from './page-patch.mts'
+
+// Bridge page-level events to context level. ArkWeb does not emit console,
+// dialog, or pageerror events at the browser context level (verified with CDP
+// monitoring), but page-level events work correctly. This bridge subscribes
+// to each page's events and re-emits them on the context, enabling
+// context.waitForEvent('console') / context.waitForEvent('dialog') /
+// context.waitForEvent('weberror') patterns.
+function installEventBridge(ctx: BrowserContext, page: Page): void {
+  const key = '__ohosEventBridgeInstalled' as any
+  if ((page as any)[key]) return
+  ;(page as any)[key] = true
+
+  const ctxEmit = (ctx as unknown as { emit: (e: string, v: unknown) => void }).emit.bind(ctx)
+
+  page.on('console', (msg: unknown) => { ctxEmit('console', msg) })
+  page.on('dialog', (dlg: unknown) => { ctxEmit('dialog', dlg) })
+  page.on('pageerror', (err: unknown) => { ctxEmit('weberror', err) })
+}
 
 export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: boolean }): void {
   if ((ctx as any).__ohosPatch) return
@@ -93,6 +111,7 @@ export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: bo
       }
       ;(p as any).close = makeSafePageClose(p, ctx)
     }
+    installEventBridge(ctx, p)
     return p
   }
   ;(ctx as any).newPage = async () => {
@@ -113,6 +132,7 @@ export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: bo
         }
         ;(newP as any).close = makeSafePageClose(newP, ctx)
       }
+      installEventBridge(ctx, newP)
       return newP
     }
 
@@ -125,11 +145,12 @@ export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: bo
     return seedPage
   }
 
-  // 对 context 内所有已有 page 补 close patch
+  // 对 context 内所有已有 page 补 close patch + event bridge
   for (const p of ctx.pages()) {
     if (!(p as any).__ohosPageClosePatch) {
       ;(p as any).__ohosPageClosePatch = true
       ;(p as any).close = makeSafePageClose(p, ctx)
     }
+    installEventBridge(ctx, p)
   }
 }

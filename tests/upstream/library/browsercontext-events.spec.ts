@@ -18,7 +18,6 @@ import { browserTest as test, expect } from '../fixtures/upstream-fixture.js';
 import type { ElementHandle } from 'playwright-core';
 
 test('console event should work @smoke', async ({ page }) => {
-  test.fixme(true, 'ArkWeb: context.waitForEvent(console) 在 ArkWeb 上不触发');
   const [, message] = await Promise.all([
     page.evaluate(() => console.log('hello')),
     page.context().waitForEvent('console'),
@@ -29,7 +28,6 @@ test('console event should work @smoke', async ({ page }) => {
 });
 
 test('console event should work with element handles', async ({ page }) => {
-  test.fixme(true, 'ArkWeb: context.waitForEvent(console) 在 ArkWeb 上不触发');
   await page.setContent('<body>hello</body>');
   const [message] = await Promise.all([
     page.context().waitForEvent('console'),
@@ -92,7 +90,6 @@ test('console event should work in immediately closed popup', async ({ page, bro
 });
 
 test('dialog event should work @smoke', async ({ page }) => {
-  test.fixme(true, 'ArkWeb: dialog 事件未在 context 级别触发');
   const promise = page.evaluate(() => prompt('hey?'));
   const [dialog1, dialog2] = await Promise.all([
     page.context().waitForEvent('dialog'),
@@ -184,7 +181,6 @@ test('dialog event should work with inline script tag', async ({ page, server })
 });
 
 test('weberror event should work', async ({ page }) => {
-  test.fixme(true, 'ArkWeb: context.waitForEvent(weberror) 未触发');
   const [webError] = await Promise.all([
     page.context().waitForEvent('weberror'),
     page.setContent('<script>throw new Error("boom")</script>'),
@@ -238,7 +234,7 @@ test('framenavigated event should work @smoke', async ({ page, server }) => {
 });
 
 test('pageclose event should work @smoke', async ({ context }) => {
-  test.fixme(true, 'ArkWeb: context.waitForEvent(pageclose) 未触发');
+  test.fixme(true, 'ArkWeb: context.waitForEvent(pageclose) 返回对象与 page 引用不一致');
   const page = await context.newPage();
   const [closed] = await Promise.all([
     context.waitForEvent('pageclose'),
