@@ -67,10 +67,11 @@ export const test = base.extend<{
   capabilities: OhosCapabilities
 }>({
   browser: [
+    // Worker-scoped per Playwright's built-in fixture contract. device.browser()
+    // returns a stable Proxy that transparently forwards to the current live
+    // Browser; OhosDevice handles ArkWeb reconnects under the hood.
     async ({}, use: (b: Browser) => Promise<void>) => {
-      const device = getOhosDevice()
-      const b = await device.browser()
-      await use(b)
+      await use(await getOhosDevice().browser())
     },
     { scope: 'worker' as const },
   ],

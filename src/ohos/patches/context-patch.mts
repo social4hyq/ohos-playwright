@@ -10,6 +10,16 @@ export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: bo
   ;(ctx as any).__ohosPatch = true
   const isDefault = !!opts?.isDefault
 
+  // ctx.browser() returns the realBrowser by default; rewrite to return the
+  // OhosDevice proxy so identity checks like expect(browser).toBe(context.browser())
+  // pass (fixture's `browser` is the same proxy). __ohosProxy is set by
+  // OhosDevice._ensureBrowser before applyBrowserPatches → applyContextPatches.
+  const realBrowser = ctx.browser()
+  const proxy = (realBrowser as unknown as { __ohosProxy?: unknown })?.__ohosProxy
+  if (proxy) {
+    ;(ctx as any).browser = () => proxy
+  }
+
   // close 行为分两路：
   //   默认 context：不能真实 dispose（会关掉整个浏览器）。导航到 about:blank +
   //     emit close — 让 Playwright 内部清理但不动 CDP 端 Context。
@@ -26,33 +36,49 @@ export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: bo
         await clearBeforeunload(p)
         try { await p.goto('about:blank') } catch {}
       }
+    } else {
+      // For non-default contexts, mirror Playwright's real close sequence: tear
+      // down each page client-side so ctx.pages() returns [] after close.
+      // (We can't dispose the underlying CDP target — ArkWeb drops the WS — so
+      // pages leak server-side until the worker recycles.)
+      for (const p of ctx.pages()) {
+        ;(p as unknown as { _onClose: () => void })._onClose()
+      }
     }
-    ;(ctx as unknown as { emit: (e: string) => void }).emit('close')
+    // _onClose() is the client-side close handler that Playwright wires to the
+    // channel 'close' event. It removes ctx from browser._contexts (so
+    // browser.contexts() returns the updated set) AND emits Events.BrowserContext.Close.
+    // Plain ctx.emit('close') skips the _contexts cleanup, leaving stale entries.
+    ;(ctx as unknown as { _onClose: () => void })._onClose()
     if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
       console.error(`[ohos][CTX_CLOSE_DONE] ${new Date().toISOString()}`)
     }
   }
 
   // newPage：
-  //   - 空 context（browser.newPage() 路径）→ 真实 Playwright newPage()
-  //   - 已有页面的 context → createPopupPage（Target.createTarget）
+  //   - 非默认 ctx（browser.newContext()）→ 总是 realNewPage()；ArkWeb 在隔离
+  //     context 内的 Target.createTarget 不会断 WS（不像默认 ctx 那么脆弱）
+  //   - 默认 ctx 空 → realNewPage()（兼容 browser.newPage 路径）
+  //   - 默认 ctx 已有页面 → createPopupPage（Target.createTarget via CDP）
   //   - createPopupPage 失败 → reset seedPage to about:blank
   const realNewPage = (ctx.newPage as Function).bind(ctx)
+  const wrapPage = async (p: import('@playwright/test').Page) => {
+    if (!(p as any).__ohosPageClosePatch) {
+      ;(p as any).__ohosPageClosePatch = true
+      if (!(p as any).__ohosBeforeunloadPatched) {
+        ;(p as any).__ohosBeforeunloadPatched = true
+        await p.addInitScript(BEFOREUNLOAD_TRACKING_SCRIPT)
+      }
+      ;(p as any).close = makeSafePageClose(p)
+    }
+    return p
+  }
   ;(ctx as any).newPage = async () => {
     const seedPage = ctx.pages()[0]
 
-    if (!seedPage) {
-      // 新建 context 没有 seed page，走真实的 Playwright newPage()
+    if (!isDefault || !seedPage) {
       const p = await realNewPage()
-      if (!(p as any).__ohosPageClosePatch) {
-        ;(p as any).__ohosPageClosePatch = true
-        if (!(p as any).__ohosBeforeunloadPatched) {
-          ;(p as any).__ohosBeforeunloadPatched = true
-          await p.addInitScript(BEFOREUNLOAD_TRACKING_SCRIPT)
-        }
-        ;(p as any).close = makeSafePageClose(p)
-      }
-      return p
+      return await wrapPage(p)
     }
 
     const newP = await createPopupPage(ctx, seedPage, 'about:blank')

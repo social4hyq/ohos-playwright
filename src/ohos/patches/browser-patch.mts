@@ -64,13 +64,16 @@ export function applyBrowserPatches(
     return page
   }
 
-  // 4. 断线自动重连 — 调试日志：打印断连时间戳 + 完整堆栈，定位触发点
+  // 4. Disconnect 仅记录日志，恢复由 OhosDevice.browser() 在下次调用时按需重连：
+  //    - fire-and-forget reconnect 旧实现会留下 dead Browser，下次 fixture 仍拿到陈旧引用
+  //    - 现在改为：device 监听同一 disconnect 事件 → 清空 _browser 缓存
+  //    - 下一个测试 fixture 调 device.browser() 时，probe endpoint → 必要时 connect()
   browser.on('disconnected', () => {
     if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
       const ts = new Date().toISOString()
       console.error(`\n[ohos][DISCONNECT] ${ts} browser disconnected`)
       console.error(new Error('disconnect stack trace').stack)
     }
-    void conn.reconnect()
   })
+  void conn  // intentionally referenced; reconnect now owned by OhosDevice
 }

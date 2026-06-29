@@ -144,6 +144,15 @@ export class OhosDeviceConnection {
     })
   }
 
+  // Public liveness check for a cached endpoint URL (used by OhosDevice to decide
+  // whether to reuse INFO_PATH's endpoint or call connect() to re-establish).
+  async probeEndpoint(endpoint: string): Promise<boolean> {
+    const m = endpoint.match(/^https?:\/\/[^:]+:(\d+)/)
+    if (!m) return false
+    const r = await this.probeCdp(parseInt(m[1]!, 10))
+    return r.ok
+  }
+
   private cdpGet(port: number, path: string): Promise<{ ok: boolean; body?: string }> {
     return new Promise((res) => {
       const req = http.get(`http://127.0.0.1:${port}${path}`, (r) => {
