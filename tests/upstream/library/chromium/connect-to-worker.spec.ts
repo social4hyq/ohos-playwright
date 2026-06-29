@@ -17,6 +17,7 @@
 import { playwrightTest as test, expect } from '../../fixtures/upstream-fixture.js';
 
 test('should connect, evaluate, receive console and disconnect', async ({ browserType, childProcess }) => {
+  it.fixme(true, 'ArkWeb: connectToWorker 不支持');
   const child = childProcess({ command: [process.execPath, '--inspect-brk=0', '-e', 'console.log("hello from node"); setTimeout(() => {}, 1e9)'] });
   await child.waitForOutput('Debugger listening on ws://');
   const endpoint = child.output.match(/Debugger listening on (ws:\/\/\S+)/)![1];
@@ -35,6 +36,7 @@ test('should connect, evaluate, receive console and disconnect', async ({ browse
 });
 
 test('should receive close when node process exits', async ({ browserType, childProcess }) => {
+  it.fixme(true, 'ArkWeb: connectToWorker 不支持');
   const child = childProcess({ command: [process.execPath, '--inspect-brk=0', '-e', 'setTimeout(() => {}, 1e9)'] });
   await child.waitForOutput('Debugger listening on ws://');
   const endpoint = child.output.match(/Debugger listening on (ws:\/\/\S+)/)![1];

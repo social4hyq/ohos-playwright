@@ -35,6 +35,7 @@ it('should not throw with remote-debugging-port argument', async ({ browserType,
 });
 
 it('should not create pages automatically', async ({ browserType }) => {
+  it.fixme(true, 'ArkWeb: launcher 不支持');
   const browser = await browserType.launch();
   const browserSession = await browser.newBrowserCDPSession();
   const targets = [];
