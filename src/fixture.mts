@@ -133,13 +133,23 @@ export const test = base.extend<{
           })
         } catch { /* best-effort */ }
 
-        // 清理所有残留的 about:blank tab（只保留 1 个 CDP 锚点页）。
-        // 上一次测试/session 的 closePageViaCDP fallback 可能留下了未关闭的 target。
+        // 清理残留 tab：closeTarget 确实删除了 CDP target，但 ArkWeb 不发送
+        // Target.targetDestroyed，所以 Playwright 的 ctx.pages() 还持有过期引用。
+        // 需要两步：1) CDP closeTarget  2) Playwright page._onClose()
         try {
           const { targetInfos } = await (cdp.send as any)('Target.getTargets') as any
-          const blankTabs = (targetInfos ?? []).filter((t: any) => t.type === 'page' && t.url === 'about:blank')
-          for (let i = 1; i < blankTabs.length; i++) {
-            await (cdp.send as any)('Target.closeTarget', { targetId: blankTabs[i].targetId }).catch(() => {})
+          const blankTargets = (targetInfos ?? []).filter((t: any) => t.type === 'page' && t.url === 'about:blank')
+          if (blankTargets.length > 1) {
+            // Map targetInfos by URL to find stale Playwright pages
+            const stalePages = pages.filter((p: any) => p.url() === 'about:blank')
+            // Close all blank CDP targets except one
+            for (let i = 1; i < blankTargets.length; i++) {
+              await (cdp.send as any)('Target.closeTarget', { targetId: blankTargets[i].targetId }).catch(() => {})
+            }
+            // Remove stale Playwright page references (ArkWeb doesn't send targetDestroyed)
+            for (const p of stalePages.slice(1)) {
+              (p as unknown as { _onClose: () => void })._onClose()
+            }
           }
         } catch { /* best-effort */ }
 
