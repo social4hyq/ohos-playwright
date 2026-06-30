@@ -415,13 +415,25 @@ export async function installPageWrappers(
         if (!(top as Record<string, unknown>)['__ohosPopupSeq']) {
           ;(top as Record<string, unknown>)['__ohosPopupSeq'] = 0
         }
+        if (!(top as Record<string, unknown>)['__ohosPopupDialogQueue']) {
+          ;(top as Record<string, unknown>)['__ohosPopupDialogQueue'] = [] as Array<{ id: number; type: string; args: any[] }>
+        }
         ;(window as unknown as { open: typeof window.open }).open = ((url?: string | URL, _target?: string, features?: string) => {
           const id = ++((top as Record<string, unknown>)['__ohosPopupSeq'] as number)
           const featuresStr = String(features ?? '')
           const noopener = /(^|[\s,])noopener($|[\s,])/i.test(featuresStr)
           ;((top as Record<string, unknown>)['__ohosPopupQueue'] as Array<{ url: string; id: number; noopener: boolean }>).push({ url: String(url ?? ''), id, noopener })
           const closeQueue = (top as Record<string, unknown>)['__ohosPopupCloseQueue'] as number[]
-          return { closed: false, close: () => { closeQueue.push(id) }, postMessage: () => {}, focus: () => {} } as unknown as Window
+          const dialogQueue = (top as Record<string, unknown>)['__ohosPopupDialogQueue'] as Array<{ id: number; type: string; args: any[] }>
+          return {
+            closed: false,
+            close: () => { closeQueue.push(id) },
+            postMessage: () => {},
+            focus: () => {},
+            alert: (...args: any[]) => { dialogQueue.push({ id, type: 'alert', args }) },
+            confirm: (...args: any[]) => { dialogQueue.push({ id, type: 'confirm', args }); return false },
+            prompt: (...args: any[]) => { dialogQueue.push({ id, type: 'prompt', args }); return null },
+          } as unknown as Window
         }) as typeof window.open
 
         // ArkWeb navigates the *current* tab when clicking <a target="_blank">
@@ -514,6 +526,24 @@ export async function installPageWrappers(
             }
             ctxEmit('page', emitted)
             ;(page as any).emit('popup', emitted)
+            // Replay queued dialog calls (alert/confirm/prompt) made via the
+            // fake window before the real popup existed. Use setTimeout so
+            // alert() blocking doesn't stall the popup poller's tick.
+            try {
+              const pendingDialogs = await origEvaluate(() => {
+                const q = (window as unknown as Record<string, unknown>)['__ohosPopupDialogQueue'] as Array<{ id: number; type: string; args: any[] }>
+                ;(window as unknown as Record<string, unknown>)['__ohosPopupDialogQueue'] = []
+                return q
+              })
+              for (const d of pendingDialogs ?? []) {
+                if (d.id !== id) continue
+                setTimeout(() => {
+                  emitted!.evaluate(([type, args]: [string, any[]]) => {
+                    ;(window as any)[type](...args)
+                  }, [d.type, d.args] as any).catch(() => {})
+                }, 10)
+              }
+            } catch { /* page may be gone */ }
             emitted.evaluate(() => {
               if ((window as any).__ohosWindowClosePatched) return
               ;(window as any).__ohosWindowClosePatched = true
