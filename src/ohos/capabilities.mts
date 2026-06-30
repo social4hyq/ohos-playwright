@@ -29,6 +29,9 @@ export interface OhosCapabilities {
   // Playwright 内部
   exposeBindingHandle: boolean
   playwrightInspector: boolean
+  // CustomTabAbility 单页约束
+  cdpReconnectStable: boolean
+  multiPageSimultaneous: boolean
   // 元信息
   readonly arkwebVersion: string
   readonly ohosVersion: string
@@ -85,6 +88,9 @@ export async function detectCapabilities(
     exposeBindingHandle:           false,
     // ❌ 需 Inspector 进程
     playwrightInspector:           false,
+    // CustomTabAbility 单页约束（CT）
+    cdpReconnectStable:            false, // spec 文件间需重启浏览器
+    multiPageSimultaneous:          false, // Target.createTarget 创建的是独立页面，非标签
     arkwebVersion,
     ohosVersion: detectOhosVersion(hdcBinary),
   }
