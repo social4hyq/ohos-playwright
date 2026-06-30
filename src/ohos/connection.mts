@@ -86,7 +86,7 @@ export class OhosDeviceConnection {
   private launchBrowser(): void {
     // CustomTabAbility: single-page browser, no tab bar, no session restore.
     // Default for E2E testing. Set OHOS_PW_MAIN_BROWSER=1 for full browser UI.
-    const ability = process.env.OHOS_PW_MAIN_BROWSER ? 'CustomTabAbility' : 'MainAbility'
+    const ability = process.env.OHOS_PW_MAIN_BROWSER ? 'MainAbility' : 'CustomTabAbility'
     this.shellOnDevice(
       `aa start -b ${this.BUNDLE} -m entry -a ${ability} -U ${this.LAUNCH_URL}`)
   }
