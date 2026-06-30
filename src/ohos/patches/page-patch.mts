@@ -267,9 +267,51 @@ export async function installPopupOnPage(page: Page, context: BrowserContext): P
         const closeQueue = (top as Record<string, unknown>)['__ohosPopupCloseQueue'] as number[]
         return { closed: false, close: () => { closeQueue.push(id) }, postMessage: () => {}, focus: () => {} } as unknown as Window
       }) as typeof window.open
+
+      // Intercept anchor clicks with target=_blank / _top — ArkWeb navigates
+      // the current tab instead of opening a popup. Route through our patched
+      // window.open so the poller creates a real CDP target.
+      const handleClick = (e: MouseEvent) => {
+        const a = (e.target as Element | null)?.closest('a')
+        if (!a) return
+        const targetAttr = (a.getAttribute('target') || '').toLowerCase()
+        if (targetAttr !== '_blank' && targetAttr !== '_top') return
+        const href = a.href
+        if (!href) return
+        e.preventDefault()
+        e.stopImmediatePropagation()
+        ;(window as unknown as { open: typeof window.open }).open(href, targetAttr)
+      }
+      document.addEventListener('click', handleClick, true)
+      const protoClick = window.HTMLAnchorElement.prototype.click
+      window.HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) {
+        const targetAttr = (this.getAttribute('target') || '').toLowerCase()
+        if (targetAttr === '_blank' || targetAttr === '_top') {
+          ;(window as unknown as { open: typeof window.open }).open(this.href, targetAttr)
+          return
+        }
+        return protoClick.call(this)
+      }
+      ;(window as unknown as Record<string, unknown>)['__ohosAnchorClickInstaller'] = handleClick
     }
     await page.addInitScript(installInterceptor)
     await origEvaluate(installInterceptor).catch(() => { /* page may be gone */ })
+  }
+
+  // ArkWeb's setContent wipes document-level event listeners. Re-attach the
+  // click interceptor after each setContent so <a target=_blank> clicks route
+  // through window.open instead of navigating the current tab.
+  const savedSetContent = (page as unknown as Record<string, unknown>)['setContent'] as typeof page.setContent
+  ;(page as any).setContent = async function (...args: Parameters<typeof page.setContent>) {
+    const result = savedSetContent.apply(page, args as any)
+    await result.catch(() => {}) // swallow; caller sees original rejection
+    try {
+      await origEvaluate(() => {
+        const installer = (window as unknown as Record<string, unknown>)['__ohosAnchorClickInstaller'] as ((e: MouseEvent) => void) | undefined
+        if (installer) document.addEventListener('click', installer, true)
+      })
+    } catch { /* page may be gone */ }
+    await result
   }
 
   const poller = setInterval(async () => {
@@ -306,7 +348,30 @@ export async function installPopupOnPage(page: Page, context: BrowserContext): P
         }
       }
     } catch {}
+    // Drain close queue — emit 'close' on popups whose JS-side close() was called
+    try {
+      const closedIds = await origEvaluate(() => {
+        const arr = (window as unknown as Record<string, unknown>)['__ohosPopupCloseQueue'] as number[]
+        const copy = arr ? [...arr] : []
+        if (arr) arr.length = 0
+        return copy
+      })
+      for (const cid of closedIds ?? []) {
+        const popup = popupById.get(cid)
+        if (popup) { ;(popup as any).emit('close'); popupById.delete(cid) }
+      }
+    } catch {}
   }, 150)
+
+  // Clean up when the context is closed (e.g., by test teardown)
+  const onContextClose = () => {
+    clearInterval(poller)
+    for (const popup of popupById.values()) {
+      try { popup.close?.() } catch {}
+    }
+    popupById.clear()
+  }
+  context.on('close', onContextClose)
 
   return () => {
     clearInterval(poller)
