@@ -84,9 +84,10 @@ export class OhosDeviceConnection {
   }
 
   private launchBrowser(): void {
-    // CustomTabAbility: single-page browser, no tab bar, no session restore.
-    // Default for E2E testing. Set OHOS_PW_MAIN_BROWSER=1 for full browser UI.
-    const ability = process.env.OHOS_PW_MAIN_BROWSER ? 'MainAbility' : 'CustomTabAbility'
+    // Always use CustomTabAbility (single-page browser, no tab bar, no session restore).
+    // MainAbility (multi-tab) is deprecated for E2E — it masks CDP limitations and
+    // produces misleadingly high pass rates. OHOS_PW_MAIN_BROWSER is no longer honored.
+    const ability = 'CustomTabAbility'
     this.shellOnDevice(
       `aa start -b ${this.BUNDLE} -m entry -a ${ability} -U ${this.LAUNCH_URL}`)
   }
