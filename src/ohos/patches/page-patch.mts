@@ -541,11 +541,13 @@ export async function installPageWrappers(
 
   // 始终拦截 window.open — ArkWeb (MainAbility + CustomTabAbility) 均不通过
   // CDP 发射 Popup 事件。队列+轮询器是唯一可靠的 popup 检测路径。
+  // 当使用 OHOS_PW_CDP_URL 连接真实 Chrome/Edge 时跳过——原生 popup 正常工作。
+  const isRemoteCdp = !!process.env.OHOS_PW_CDP_URL
   const origEvaluate = page.evaluate.bind(page)
   let popupPoller: ReturnType<typeof setInterval> | null = null
   const popupById = new Map<number, Page>()
   const popupNoopener = new Map<number, boolean>()
-  {
+  if (!isRemoteCdp) {
     const alreadyPatched = (page as unknown as Record<string, unknown>)['__ohosPopupPatched']
     if (!alreadyPatched) {
       ;(page as unknown as Record<string, unknown>)['__ohosPopupPatched'] = true

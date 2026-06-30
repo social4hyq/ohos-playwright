@@ -70,7 +70,16 @@ export const test = base.extend<{
     // Worker-scoped per Playwright's built-in fixture contract. device.browser()
     // returns a stable Proxy that transparently forwards to the current live
     // Browser; OhosDevice handles ArkWeb reconnects under the hood.
+    // When OHOS_PW_CDP_URL is set, skip hdc connection entirely — connect
+    // directly to the remote Chrome/Edge endpoint for A/B comparison runs.
     async ({}, use: (b: Browser) => Promise<void>) => {
+      if (process.env.OHOS_PW_CDP_URL) {
+        process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1'
+        const { chromium } = await import('@playwright/test')
+        const raw = await chromium.connectOverCDP(process.env.OHOS_PW_CDP_URL)
+        await use(raw)
+        return
+      }
       await use(await getOhosDevice().browser())
     },
     { scope: 'worker' as const },
