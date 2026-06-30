@@ -267,36 +267,39 @@ export async function installPopupOnPage(page: Page, context: BrowserContext): P
         const closeQueue = (top as Record<string, unknown>)['__ohosPopupCloseQueue'] as number[]
         return { closed: false, close: () => { closeQueue.push(id) }, postMessage: () => {}, focus: () => {} } as unknown as Window
       }) as typeof window.open
-
-      // Intercept anchor clicks with target=_blank / _top — ArkWeb navigates
-      // the current tab instead of opening a popup. Route through our patched
-      // window.open so the poller creates a real CDP target.
-      const handleClick = (e: MouseEvent) => {
-        const a = (e.target as Element | null)?.closest('a')
-        if (!a) return
-        const targetAttr = (a.getAttribute('target') || '').toLowerCase()
-        if (targetAttr !== '_blank' && targetAttr !== '_top') return
-        const href = a.href
-        if (!href) return
-        e.preventDefault()
-        e.stopImmediatePropagation()
-        ;(window as unknown as { open: typeof window.open }).open(href, targetAttr)
-      }
-      document.addEventListener('click', handleClick, true)
-      const protoClick = window.HTMLAnchorElement.prototype.click
-      window.HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) {
-        const targetAttr = (this.getAttribute('target') || '').toLowerCase()
-        if (targetAttr === '_blank' || targetAttr === '_top') {
-          ;(window as unknown as { open: typeof window.open }).open(this.href, targetAttr)
-          return
-        }
-        return protoClick.call(this)
-      }
-      ;(window as unknown as Record<string, unknown>)['__ohosAnchorClickInstaller'] = handleClick
     }
     await page.addInitScript(installInterceptor)
     await origEvaluate(installInterceptor).catch(() => { /* page may be gone */ })
   }
+
+  // Click interceptor (separate from popup interceptor — must always install
+  // even when __ohosPopupPatched triggers early-return on navigation re-runs).
+  const installClickInterceptor = () => {
+    const handleClick = (e: MouseEvent) => {
+      const a = (e.target as Element | null)?.closest('a')
+      if (!a) return
+      const targetAttr = (a.getAttribute('target') || '').toLowerCase()
+      if (targetAttr !== '_blank' && targetAttr !== '_top') return
+      const href = a.href
+      if (!href) return
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      ;(window as unknown as { open: typeof window.open }).open(href, targetAttr)
+    }
+    document.addEventListener('click', handleClick, true)
+    const protoClick = window.HTMLAnchorElement.prototype.click
+    window.HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) {
+      const targetAttr = (this.getAttribute('target') || '').toLowerCase()
+      if (targetAttr === '_blank' || targetAttr === '_top') {
+        ;(window as unknown as { open: typeof window.open }).open(this.href, targetAttr)
+        return
+      }
+      return protoClick.call(this)
+    }
+    ;(window as unknown as Record<string, unknown>)['__ohosAnchorClickInstaller'] = handleClick
+  }
+  await page.addInitScript(installClickInterceptor)
+  await origEvaluate(installClickInterceptor).catch(() => { /* page may be gone */ })
 
   // ArkWeb's setContent wipes document-level event listeners. Re-attach the
   // click interceptor after each setContent so <a target=_blank> clicks route
