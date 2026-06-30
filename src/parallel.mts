@@ -1,5 +1,6 @@
 import type { Browser, BrowserContext, Page } from '@playwright/test'
 import { test as base, installPageWrappers } from './fixture.mts'
+import { safeResetPage } from './ohos/patches/page-patch.mts'
 
 // Parallel-safe test fixture for ohos-playwright.
 //
@@ -72,10 +73,9 @@ export const test = base.extend<
       await use(page)
     } finally {
       await cleanup()
-      // Navigate to about:blank instead of page.close(). Closing a page
-      // (Target.closeTarget) in ArkWeb triggers an async CDP WebSocket
-      // disconnect. Navigating to about:blank resets the page content safely.
-      try { await page.goto('about:blank') } catch {}
+      // Reset DOM without a navigation. about:blank destroys CustomTabAbility's
+      // only tab ~1s later; setContent keeps it alive.
+      await safeResetPage(page)
     }
   },
 })

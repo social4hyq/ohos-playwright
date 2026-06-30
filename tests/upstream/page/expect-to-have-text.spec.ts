@@ -272,7 +272,7 @@ test.describe('toHaveText with array', () => {
   });
 
   test('fail', async ({ page }) => {
-    it.fixme(true, 'ArkWeb: locator 匹配元素数量与上游不一致（多匹配空文本节点）');
+    test.fixme(true, 'ArkWeb: locator 匹配元素数量与上游不一致（多匹配空文本节点）');
     await page.setContent('<div>Text 1</div><div>Text 3</div>');
     const locator = page.locator('div');
     const error = await expect(locator).toHaveText(['Text 1', /Text \d/, 'Extra'], { timeout: 1000 }).catch(e => e);

@@ -133,24 +133,33 @@ export const test = base.extend<{
           })
         } catch { /* best-effort */ }
 
-        // 清理多余的 about:blank 页面（只保留第一个锚点页）。
-        // browser.newContext() 会遗留 blank 页面，通过 CDP closeTarget 移除
-        // 它们从 context.pages() 中，防止 Playwright 层面累积。
-        if (pages.length > 1) {
-          try {
-            const { targetInfos } = await (cdp.send as any)('Target.getTargets') as any
-            const blankTargets = (targetInfos ?? []).filter((t: any) => t.type === 'page' && t.url === 'about:blank')
-            for (let i = 1; i < blankTargets.length; i++) {
-              await (cdp.send as any)('Target.closeTarget', { targetId: blankTargets[i].targetId }).catch(() => {})
+        // Clean up leftover popup / stale tabs. safeClose removes pages from
+        // Playwright's list via _onClose but the CDP target still exists.
+        // Always query CDP targets and close non-anchor ones — don't rely on
+        // pages.length which may be stale after _onClose.
+        try {
+          const { targetInfos } = await (cdp.send as any)('Target.getTargets') as any
+          const pageTargets = (targetInfos ?? []).filter((t: any) => t.type === 'page')
+          // Track the anchor targetId on first run. CDP targets can be in
+          // any order — don't assume index 0 is the anchor.
+          const storedAnchor = (ctx as unknown as Record<string, unknown>)['__ohosAnchorTargetId']
+          let anchorId: string | undefined
+          if (typeof storedAnchor === 'string') {
+            anchorId = storedAnchor
+          } else if (pageTargets.length > 0) {
+            anchorId = pageTargets[0].targetId
+            ;(ctx as unknown as Record<string, unknown>)['__ohosAnchorTargetId'] = anchorId
+          }
+          for (const t of pageTargets) {
+            if (t.targetId !== anchorId) {
+              await (cdp.send as any)('Target.closeTarget', { targetId: t.targetId }).catch(() => {})
             }
-            // 清理 Playwright 过期 page 引用（ArkWeb 不发送 targetDestroyed）
-            for (const p of pages.slice(1)) {
-              if (p.url() === 'about:blank') {
-                (p as unknown as { _onClose: () => void })._onClose()
-              }
-            }
-          } catch { /* best-effort */ }
-        }
+          }
+          // Clean up Playwright-internal page refs for non-anchor pages.
+          for (const p of pages.slice(1)) {
+            (p as unknown as { _onClose: () => void })._onClose()
+          }
+        } catch { /* best-effort */ }
 
         await cdp.detach().catch(() => {})
       }
@@ -174,14 +183,20 @@ export const test = base.extend<{
     const pages = context.pages()
     if (pages.length === 0) throw new Error('No pages in ArkWeb CDP context. Open a tab first.')
 
-    // Always reuse the CDP default page (pages[0]). Creating new pages via
-    // Target.createTarget adds tabs to the browser UI that cannot be removed
-    // (ArkWeb doesn't visually close tabs on Target.closeTarget). Between
-    // tests, state is reset via navigate-to-blank + Storage.clearDataForOrigin
-    // in the context fixture.
-    const page = pages[0]
+    // Track the anchor page (first page in the context, launched by the browser
+    // at OHOS_PW_LAUNCH_URL). Popups created via Target.createTarget accumulate
+    // in context.pages() and can shift pages[0] if the anchor is removed. Always
+    // return the anchor page, not whatever happens to be at index 0.
+    const anchor = (context as unknown as Record<string,unknown>)['__ohosAnchorPage']
+    let page: Page
+    if (anchor && pages.includes(anchor as unknown as Page)) {
+      page = anchor as unknown as Page
+    } else {
+      page = pages[0]
+      ;(context as unknown as Record<string,unknown>)['__ohosAnchorPage'] = page
+    }
 
-    const cleanup = await installPageWrappers(page, context, testInfo.project.use.baseURL, { skipCreateTarget: true })
+    const cleanup = await installPageWrappers(page, context, testInfo.project.use.baseURL, { skipCreateTarget: false })
     applyInputPatches(page)
     try {
       await use(page)
@@ -190,8 +205,11 @@ export const test = base.extend<{
         console.error(`[ohos][PAGE_CLEANUP_START] ${new Date().toISOString()}`)
       }
       await cleanup()
-      // Navigate to about:blank to reset state. Cannot close the CDP default page.
-      try { await page.goto('about:blank') } catch {}
+      // Reset DOM without a navigation. CustomTabAbility (single-page browser)
+      // destroys its only tab ~1s after navigating to about:blank, which would
+      // make the next test's page fixture see an empty context. setContent
+      // rewrites the DOM via CDP and keeps the tab alive.
+      try { await page.setContent('<!DOCTYPE html><html><head></head><body></body></html>') } catch {}
       if (process.env.OHOS_PW_DEBUG_DISCONNECT) {
         console.error(`[ohos][PAGE_CLEANUP_DONE] ${new Date().toISOString()}`)
       }

@@ -29,7 +29,7 @@ export interface OhosCapabilities {
   // Playwright 内部
   exposeBindingHandle: boolean
   playwrightInspector: boolean
-  // CustomTabAbility 单页约束
+  // MainAbility 多 tab 模型（vs CustomTabAbility 单页约束）
   cdpReconnectStable: boolean
   multiPageSimultaneous: boolean
   // 元信息
@@ -88,9 +88,9 @@ export async function detectCapabilities(
     exposeBindingHandle:           false,
     // ❌ 需 Inspector 进程
     playwrightInspector:           false,
-    // CustomTabAbility 单页约束（CT）
-    cdpReconnectStable:            false, // spec 文件间需重启浏览器
-    multiPageSimultaneous:          false, // Target.createTarget 创建的是独立页面，非标签
+    // MainAbility 多 tab 模型：CDP reconnect 稳定，Target.createTarget 创建真实标签
+    cdpReconnectStable:            true,
+    multiPageSimultaneous:          true,
     arkwebVersion,
     ohosVersion: detectOhosVersion(hdcBinary),
   }

@@ -38,7 +38,6 @@ it('async stacks should work', async ({ page, server }) => {
 });
 
 it('should provide access to the opener page', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: window.open via CDP 不建立 opener 关系；popup.opener() 总返回 undefined');
   const [popup] = await Promise.all([
     page.waitForEvent('popup'),
     page.evaluate(() => window.open('about:blank')),
@@ -102,7 +101,6 @@ it('page.title should not throw during navigation', async ({ page, server }) => 
 });
 
 it('page.close should work with window.close', async function({ page }) {
-  it.fixme(true, 'ArkWeb: window.open via CDP 不创建真实 popup；window.close 无法触发 close 事件');
   const newPagePromise = page.waitForEvent('popup');
   await page.evaluate(() => window['newPage'] = window.open('about:blank'));
   const newPage = await newPagePromise;
@@ -187,7 +185,6 @@ it('frame.press should work', async ({ page, server }) => {
 
 it('has navigator.webdriver set to true', async ({ page, isAndroid }) => {
   it.fixme(isAndroid);
-  it.fixme(true, 'ArkWeb: navigator.webdriver 未设置为 true（自动化模式未启用）');
 
   expect(await page.evaluate(() => navigator.webdriver)).toBe(true);
 });

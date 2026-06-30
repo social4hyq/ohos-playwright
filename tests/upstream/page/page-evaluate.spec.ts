@@ -370,7 +370,6 @@ it('should properly serialize null fields', async ({ page }) => {
 });
 
 it('should properly serialize PerformanceMeasure object', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: window.builtins 未设置（Playwright UtilityScript 状态未持久化）');
   expect(await page.evaluate(() => {
     window.builtins.performance.mark('start');
     window.builtins.performance.mark('end');

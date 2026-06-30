@@ -14,6 +14,19 @@ export type PageCleanup = (opts?: { navigateTo?: string }) => Promise<void>
 // ArkWeb shows a native "Leave page?" dialog when beforeunload fires during CDP navigation;
 // that dialog cannot be dismissed via CDP → crashes the WebSocket. By tracking handlers
 // we can remove them all before any cleanup navigation.
+// CustomTabAbility (single-page browser) destroys its only tab ~1s after the
+// page navigates to `about:blank` — the custom-tab session treats a blank URL
+// as "nothing to show" and tears itself down, dropping the CDP target. This
+// makes every cleanup/fallback navigation that used `page.goto('about:blank')`
+// poison the next test (context.pages() becomes empty → "No pages" error).
+//
+// Safe reset: setContent rewrites the DOM via CDP without a URL change, so the
+// tab survives. Callers that previously emitted a synthetic 'close' still do so.
+const EMPTY_HTML = '<!DOCTYPE html><html><head></head><body></body></html>'
+export async function safeResetPage(page: Page): Promise<void> {
+  try { await page.setContent(EMPTY_HTML) } catch { /* page may be gone */ }
+}
+
 export const BEFOREUNLOAD_TRACKING_SCRIPT = () => {
   if ((window as any).__ohosBeforeunloadPatched) return
   ;(window as any).__ohosBeforeunloadPatched = true
@@ -225,7 +238,7 @@ export async function installPageWrappers(
   page: Page,
   context: BrowserContext,
   baseURL: string | undefined,
-  options?: { skipCreateTarget?: boolean },
+  options?: { skipCreateTarget?: boolean; useNativePopups?: boolean },
 ): Promise<PageCleanup> {
   const ctxEmit = (context as unknown as { emit: (e: string, v: unknown) => void }).emit.bind(context)
 
@@ -316,111 +329,222 @@ export async function installPageWrappers(
   // hover/locator override is intentionally omitted here.
   // It belongs to input-patch.mts (applyInputPatches), called separately in the page fixture.
 
-  // ArkWeb's new tab from window.open() is invisible to CDP (Target.createTarget hangs,
-  // Target.targetCreated never fires). Intercept via an init script:
-  //   - queue the URL for our poller
-  //   - return null (Window object hangs CDP serialization if returned)
-  // Guard against multiple addInitScript calls across tests accumulating overrides.
-  const origEvaluate = page.evaluate.bind(page)
-  const alreadyPatched = (page as unknown as Record<string, unknown>)['__ohosPopupPatched']
-  if (!alreadyPatched) {
-    ;(page as unknown as Record<string, unknown>)['__ohosPopupPatched'] = true
-    await page.addInitScript(() => {
-      if ((window as unknown as Record<string, unknown>)['__ohosPopupPatched']) return
-      ;(window as unknown as Record<string, unknown>)['__ohosPopupPatched'] = true
-      ;(window as unknown as Record<string, unknown>)['__ohosPopupQueue'] = [] as Array<{ url: string }>
-      window.open = (url?: string | URL) => {
-        ;(
-          (window as unknown as Record<string, unknown>)['__ohosPopupQueue'] as Array<{ url: string }>
-        ).push({ url: String(url ?? '') })
-        return null  // Window object hangs CDP serialization — return null instead
-      }
-    })
+  // Stock Playwright launches Chromium with --enable-automation, which makes
+  // Chrome expose navigator.webdriver === true. ArkWeb is launched by the OS
+  // without that flag, so navigator.webdriver reads false. Inject the
+  // automation-mode value both on the current document (one-shot evaluate) and
+  // on every future navigation (addInitScript) so user tests and upstream specs
+  // that rely on the standard Playwright/automation contract see true.
+  if (!(page as any).__ohosWebdriverPatched) {
+    ;(page as any).__ohosWebdriverPatched = true
+    const webdriverOverride = () => {
+      try { Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => true, configurable: true }) } catch { /* best-effort */ }
+    }
+    await page.addInitScript(webdriverOverride)
+    await page.evaluate(webdriverOverride).catch(() => { /* page may be gone */ })
   }
-  const popupPoller = setInterval(async () => {
-    try {
-      const pending = await origEvaluate(() => {
-        const q = (window as unknown as Record<string, unknown>)['__ohosPopupQueue'] as Array<{ url: string }>
-        ;(window as unknown as Record<string, unknown>)['__ohosPopupQueue'] = []
-        return q
-      })
-      for (const { url } of pending ?? []) {
-        // 1) Target.createTarget（首选，parallel context 下跳过以免 CDP 崩溃）
-        let emitted: Page | null = null
-        if (!options?.skipCreateTarget) {
-          try {
-            emitted = await createPopupPage(context, page, url || 'about:blank')
-          } catch {}
-        }
-        // 2) Fallback A：默认 context 闲置 about:blank tab
-        if (!emitted) {
-          const idle = context
-            .pages()
-            .find((p) => p !== page && p.url() === 'about:blank')
-          if (idle) {
-            try {
-              if (url && url !== 'about:blank') {
-                await idle.goto(url, { timeout: 5000 })
-              }
-              // Patch idle tab's close() so specs calling page.close() on a popup
-              // don't trigger Target.closeTarget → CDP WebSocket crash.
-              if (!(idle as any).__ohosPageClosePatch) {
-                ;(idle as any).__ohosPageClosePatch = true
-                ;(idle as any).close = makeSafePageClose(idle, context)
-              }
-              emitted = idle
-            } catch {}
-          }
-        }
-        // 3) Fallback B：退回原 stub（保持兼容）
-        // Include context() and opener() so tests that check popup.context() or
-        // popup.opener() on a stub don't fail with "not a function".
-        if (!emitted) {
-          const stub = {
-            waitForLoadState: async () => {},
-            url: () => url,
-            close: async () => {},
-            opener: async () => null,
-            context: () => context,
-          }
-          ctxEmit('page', stub as unknown as Page)
-          // Emit 'popup' on originating page so waitForEvent('popup') works.
-          ;(page as any).emit('popup', stub as unknown as Page)
-        } else {
-          // Patch opener() on the popup page so it returns the originating page.
-          // CustomTabAbility's CDP-created target has no opener relationship; without
-          // this patch popup.opener() always returns null.
-          if (!(emitted as any).__ohosOpenerPatched) {
-            ;(emitted as any).__ohosOpenerPatched = true
-            const origOpener = (emitted as any).opener?.bind(emitted)
-            ;(emitted as any).opener = async () => {
-              try { const real = origOpener ? await origOpener() : null; if (real) return real } catch {}
-              return page
-            }
-          }
-          ctxEmit('page', emitted)
-          // Emit 'popup' on originating page so waitForEvent('popup') works.
-          ;(page as any).emit('popup', emitted)
-          // Intercept window.close() on the popup page so calling it from JS
-          // (which CustomTabAbility ignores) emits a 'close' event on the Page.
-          emitted.evaluate(() => {
-            if ((window as any).__ohosWindowClosePatched) return
-            ;(window as any).__ohosWindowClosePatched = true
-            const _origClose = window.close.bind(window)
-            window.close = () => { console.log('__ohos_window_close__'); _origClose() }
-          }).catch(() => {})
-          // Listen for the console marker and emit 'close' on the popup page.
-          const onConsole = (msg: any) => {
-            if (msg.text() === '__ohos_window_close__') {
-              ;(emitted as any).emit('close')
-              emitted.off('console', onConsole)
-            }
-          }
-          emitted.on('console', onConsole)
-        }
+
+  // Playwright's UtilityScript only exposes window.builtins when isUnderTest
+  // (PWTEST_UNDER_TEST=1). Expose the frozen builtins bundle so upstream specs
+  // that schedule callbacks via window.builtins.setTimeout etc. don't break.
+  if (!(page as any).__ohosBuiltinsPatched) {
+    ;(page as any).__ohosBuiltinsPatched = true
+    const exposeBuiltins = () => {
+      const w = window as any
+      if (w.builtins) return
+      w.builtins = {
+        setTimeout: w.setTimeout?.bind(w),
+        clearTimeout: w.clearTimeout?.bind(w),
+        setInterval: w.setInterval?.bind(w),
+        clearInterval: w.clearInterval?.bind(w),
+        requestAnimationFrame: w.requestAnimationFrame?.bind(w),
+        cancelAnimationFrame: w.cancelAnimationFrame?.bind(w),
+        requestIdleCallback: w.requestIdleCallback?.bind(w),
+        cancelIdleCallback: w.cancelIdleCallback?.bind(w),
+        performance: w.performance,
+        Intl: w.Intl,
+        Date: w.Date,
+        AbortSignal: w.AbortSignal,
       }
-    } catch {}
-  }, 150)
+    }
+    await page.addInitScript(exposeBuiltins)
+    await page.evaluate(exposeBuiltins).catch(() => { /* page may be gone */ })
+  }
+
+  // ArkWeb's setContent (document.open/write) wipes all document-level event
+  // listeners. Re-attach the anchor-click interceptor after each setContent so
+  // <a target=_blank> clicks keep routing through the popup poller instead of
+  // navigating the current tab (which would break waitForEvent('popup')).
+  const savedSetContent = (page as unknown as Record<string, unknown>)['setContent'] as typeof page.setContent
+  ;(page as any).setContent = async function(...args: Parameters<typeof page.setContent>) {
+    const result = savedSetContent.apply(page, args as any)
+    await result.catch(() => { /* swallow; caller sees original rejection */ })
+    try {
+      await origEvaluate(() => {
+        const installer = (window as unknown as Record<string, unknown>)['__ohosAnchorClickInstaller'] as ((e: MouseEvent) => void) | undefined
+        if (installer) document.addEventListener('click', installer, true)
+      })
+    } catch { /* page may be gone */ }
+    await result
+  }
+
+  // 始终拦截 window.open — ArkWeb (MainAbility + CustomTabAbility) 均不通过
+  // CDP 发射 Popup 事件。队列+轮询器是唯一可靠的 popup 检测路径。
+  const origEvaluate = page.evaluate.bind(page)
+  let popupPoller: ReturnType<typeof setInterval> | null = null
+  const popupById = new Map<number, Page>()
+  const popupNoopener = new Map<number, boolean>()
+  {
+    const alreadyPatched = (page as unknown as Record<string, unknown>)['__ohosPopupPatched']
+    if (!alreadyPatched) {
+      ;(page as unknown as Record<string, unknown>)['__ohosPopupPatched'] = true
+      // Factored so the very first page (at about:blank, before any navigation)
+      // also has window.open intercepted — addInitScript only fires on next nav.
+      const installInterceptor = () => {
+        if ((window as unknown as Record<string, unknown>)['__ohosPopupPatched']) return
+        ;(window as unknown as Record<string, unknown>)['__ohosPopupPatched'] = true
+        // Route iframe window.open calls to the top window's queue so the
+        // main-page poller picks them up.
+        const top = (window.top as unknown as Record<string, unknown>) ?? (window as unknown as Record<string, unknown>)
+        if (!(top as Record<string, unknown>)['__ohosPopupQueue']) {
+          ;(top as Record<string, unknown>)['__ohosPopupQueue'] = [] as Array<{ url: string; id: number; noopener: boolean }>
+        }
+        if (!(top as Record<string, unknown>)['__ohosPopupCloseQueue']) {
+          ;(top as Record<string, unknown>)['__ohosPopupCloseQueue'] = [] as number[]
+        }
+        if (!(top as Record<string, unknown>)['__ohosPopupSeq']) {
+          ;(top as Record<string, unknown>)['__ohosPopupSeq'] = 0
+        }
+        ;(window as unknown as { open: typeof window.open }).open = ((url?: string | URL, _target?: string, features?: string) => {
+          const id = ++((top as Record<string, unknown>)['__ohosPopupSeq'] as number)
+          const featuresStr = String(features ?? '')
+          const noopener = /(^|[\s,])noopener($|[\s,])/i.test(featuresStr)
+          ;((top as Record<string, unknown>)['__ohosPopupQueue'] as Array<{ url: string; id: number; noopener: boolean }>).push({ url: String(url ?? ''), id, noopener })
+          const closeQueue = (top as Record<string, unknown>)['__ohosPopupCloseQueue'] as number[]
+          return { closed: false, close: () => { closeQueue.push(id) }, postMessage: () => {}, focus: () => {} } as unknown as Window
+        }) as typeof window.open
+
+        // ArkWeb navigates the *current* tab when clicking <a target="_blank">
+        // instead of opening a new tab. Intercept clicks that target a different
+        // browsing context and route through our patched window.open so the
+        // popup poller can create a real CDP target.
+        const handleClick = (e: MouseEvent) => {
+          const a = (e.target as Element | null)?.closest('a')
+          if (!a) return
+          const targetAttr = (a.getAttribute('target') || '').toLowerCase()
+          if (targetAttr !== '_blank' && targetAttr !== '_top') return
+          const href = a.href
+          if (!href) return
+          const rel = (a.getAttribute('rel') || '').toLowerCase()
+          const features = rel.includes('noopener') ? 'noopener' : ''
+          e.preventDefault()
+          e.stopImmediatePropagation()
+          ;(window as unknown as { open: typeof window.open }).open(href, targetAttr, features)
+        }
+        document.addEventListener('click', handleClick, true)
+        // Also intercept HTMLAnchorElement.prototype.click — page.$eval('a', a => a.click())
+        // bypasses DOM events entirely.
+        const protoClick = window.HTMLAnchorElement.prototype.click
+        window.HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) {
+          const targetAttr = (this.getAttribute('target') || '').toLowerCase()
+          if (targetAttr === '_blank' || targetAttr === '_top') {
+            const rel = (this.getAttribute('rel') || '').toLowerCase()
+            const features = rel.includes('noopener') ? 'noopener' : ''
+            ;(window as unknown as { open: typeof window.open }).open(this.href, targetAttr, features)
+            return
+          }
+          return protoClick.call(this)
+        }
+        // setContent wipes document event listeners. Store the handler so the
+        // setContent wrapper below can re-attach it.
+        ;(window as unknown as Record<string, unknown>)['__ohosAnchorClickInstaller'] = handleClick
+      }
+      await page.addInitScript(installInterceptor)
+      await origEvaluate(installInterceptor).catch(() => { /* page may be gone */ })
+    }
+    popupPoller = setInterval(async () => {
+      try {
+        const pending = await origEvaluate(() => {
+          const arr = (window as unknown as Record<string, unknown>)['__ohosPopupQueue'] as Array<{ url: string; id: number; noopener: boolean }>
+          const copy = arr ? [...arr] : []
+          if (arr) arr.length = 0
+          return copy
+        })
+        for (const { url, id, noopener } of pending ?? []) {
+          let emitted: Page | null = null
+          if (!options?.skipCreateTarget) {
+            try { emitted = await createPopupPage(context, page, url || 'about:blank') } catch {}
+          }
+          if (!emitted) {
+            const idle = context.pages().find((p) => p !== page && p.url() === 'about:blank')
+            if (idle) {
+              try {
+                if (url && url !== 'about:blank') await idle.goto(url, { timeout: 5000 })
+                if (!(idle as any).__ohosPageClosePatch) {
+                  ;(idle as any).__ohosPageClosePatch = true
+                  ;(idle as any).close = makeSafePageClose(idle, context)
+                }
+                emitted = idle
+              } catch {}
+            }
+          }
+          if (!emitted) {
+            const stub = {
+              waitForLoadState: async () => {}, url: () => url, close: async () => {},
+              opener: async () => null, context: () => context,
+            }
+            ctxEmit('page', stub as unknown as Page)
+            ;(page as any).emit('popup', stub as unknown as Page)
+          } else {
+            popupById.set(id, emitted)
+            popupNoopener.set(id, !!noopener)
+            // Patch opener() and inject window.opener stub for non-noopener popups.
+            if (!noopener && !(emitted as any).__ohosOpenerPatched) {
+              ;(emitted as any).__ohosOpenerPatched = true
+              const origOpener = (emitted as any).opener?.bind(emitted)
+              ;(emitted as any).opener = async () => {
+                try { const real = origOpener ? await origOpener() : null; if (real) return real } catch {}
+                return page
+              }
+              // window.opener stub — injected as init script + one-shot evaluate.
+              // Non-noopener popups must have truthy window.opener for upstream tests.
+              const openerStub = () => { try { Object.defineProperty(window, 'opener', { get: () => ({}), configurable: true }) } catch { /* best-effort */ } }
+              try { await emitted.addInitScript(openerStub) } catch {}
+              await emitted.evaluate(openerStub).catch(() => {})
+            }
+            ctxEmit('page', emitted)
+            ;(page as any).emit('popup', emitted)
+            emitted.evaluate(() => {
+              if ((window as any).__ohosWindowClosePatched) return
+              ;(window as any).__ohosWindowClosePatched = true
+              const _origClose = window.close.bind(window)
+              window.close = () => { console.log('__ohos_window_close__'); _origClose() }
+            }).catch(() => {})
+            const onConsole = (msg: any) => {
+              if (msg.text() === '__ohos_window_close__') {
+                ;(emitted as any).emit('close')
+                emitted.off('console', onConsole)
+              }
+            }
+            emitted.on('console', onConsole)
+          }
+        }
+        // Drain close queue — emit 'close' on popups whose JS-side close() was called.
+        try {
+          const closedIds = await origEvaluate(() => {
+            const arr = (window as unknown as Record<string, unknown>)['__ohosPopupCloseQueue'] as number[]
+            const copy = arr ? [...arr] : []
+            if (arr) arr.length = 0
+            return copy
+          })
+          for (const cid of closedIds ?? []) {
+            const popup = popupById.get(cid)
+            if (popup) { ;(popup as any).emit('close'); popupById.delete(cid) }
+          }
+        } catch {}
+      } catch {}
+    }, 150)
+  }
 
   // evaluate() exceptions reject the promise but never become pageerror events
   // (CDP catches them before they become uncaught). Intercept and re-emit.
@@ -438,9 +562,14 @@ export async function installPageWrappers(
   }
 
   return async (opts?: { navigateTo?: string }) => {
-    clearInterval(popupPoller)
+    if (popupPoller) clearInterval(popupPoller)
     ;(page as unknown as { evaluate: unknown }).evaluate = savedEvaluate
     ;(page as unknown as { close: unknown }).close = savedClose
+    for (const popup of popupById.values()) {
+      try { await popup.close() } catch { /* page may be gone */ }
+    }
+    popupById.clear()
+    popupNoopener.clear()
     if (opts?.navigateTo) {
       // Clear all beforeunload handlers before navigating — ArkWeb shows a native
       // system-level "Leave page?" dialog that CDP cannot auto-dismiss.

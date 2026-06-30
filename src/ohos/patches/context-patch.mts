@@ -3,7 +3,7 @@
 // 幂等（__ohosPatch 标志防止重复调用）。
 
 import type { BrowserContext, Page } from '@playwright/test'
-import { clearBeforeunload, makeSafePageClose, createPopupPage, createPageViaCDP, BEFOREUNLOAD_TRACKING_SCRIPT } from './page-patch.mts'
+import { clearBeforeunload, makeSafePageClose, createPopupPage, createPageViaCDP, BEFOREUNLOAD_TRACKING_SCRIPT, safeResetPage } from './page-patch.mts'
 
 // Bridge page-level events to context level. ArkWeb does not emit console,
 // dialog, or pageerror events at the browser context level (verified with CDP
@@ -75,7 +75,7 @@ export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: bo
     if (isDefault) {
       for (const p of ctx.pages()) {
         await clearBeforeunload(p)
-        try { await p.goto('about:blank') } catch {}
+        await safeResetPage(p)
       }
     } else {
       // For non-default contexts, mirror Playwright's real close sequence: tear
@@ -142,11 +142,11 @@ export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: bo
       return newP
     }
 
-    // Ultimate fallback：reset seedPage to about:blank
+    // Ultimate fallback：reset seedPage DOM (about:blank destroys CustomTabAbility's tab)
     await clearBeforeunload(seedPage)
     const dismissDlg = (d: import('playwright-core').Dialog) => d.dismiss().catch(() => {})
     seedPage.on('dialog', dismissDlg)
-    try { await seedPage.goto('about:blank') } catch {}
+    await safeResetPage(seedPage)
     seedPage.off('dialog', dismissDlg)
     return seedPage
   }

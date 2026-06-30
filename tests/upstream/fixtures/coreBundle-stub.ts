@@ -26,6 +26,7 @@ export const devices: Record<string, any> = new Proxy({} as any, {
 // Tests that call these at runtime will throw — add test.fixme() in the fixme pass.
 
 export const utils = {
+  hostPlatform: process.env.PLAYWRIGHT_HOST_PLATFORM_OVERRIDE ?? process.platform ?? 'linux',
   ZipFile: class { entries() { return []; } read() { return Buffer.alloc(0); } close() {} },
   waitForEvent: () => Promise.resolve({}),
   ManualPromise: class {
