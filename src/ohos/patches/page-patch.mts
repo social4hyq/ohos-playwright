@@ -378,10 +378,42 @@ export async function installPageWrappers(
             waitForLoadState: async () => {},
             url: () => url,
             close: async () => {},
+            opener: async () => null,
           }
           ctxEmit('page', stub as unknown as Page)
+          // Emit 'popup' on originating page so waitForEvent('popup') works.
+          ;(page as any).emit('popup', stub as unknown as Page)
         } else {
+          // Patch opener() on the popup page so it returns the originating page.
+          // CustomTabAbility's CDP-created target has no opener relationship; without
+          // this patch popup.opener() always returns null.
+          if (!(emitted as any).__ohosOpenerPatched) {
+            ;(emitted as any).__ohosOpenerPatched = true
+            const origOpener = (emitted as any).opener?.bind(emitted)
+            ;(emitted as any).opener = async () => {
+              try { const real = origOpener ? await origOpener() : null; if (real) return real } catch {}
+              return page
+            }
+          }
           ctxEmit('page', emitted)
+          // Emit 'popup' on originating page so waitForEvent('popup') works.
+          ;(page as any).emit('popup', emitted)
+          // Intercept window.close() on the popup page so calling it from JS
+          // (which CustomTabAbility ignores) emits a 'close' event on the Page.
+          emitted.evaluate(() => {
+            if ((window as any).__ohosWindowClosePatched) return
+            ;(window as any).__ohosWindowClosePatched = true
+            const _origClose = window.close.bind(window)
+            window.close = () => { console.log('__ohos_window_close__'); _origClose() }
+          }).catch(() => {})
+          // Listen for the console marker and emit 'close' on the popup page.
+          const onConsole = (msg: any) => {
+            if (msg.text() === '__ohos_window_close__') {
+              ;(emitted as any).emit('close')
+              emitted.off('console', onConsole)
+            }
+          }
+          emitted.on('console', onConsole)
         }
       }
     } catch {}
