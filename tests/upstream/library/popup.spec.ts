@@ -60,7 +60,7 @@ it('should respect routes from browser context', async function({ browser, serve
 });
 
 it('should inherit extra headers from browser context', async function({ browser, server }) {
-  it.fixme(true, 'ArkWeb: popup CDP 探测失败');
+  
   const context = await browser.newContext({
     extraHTTPHeaders: { 'foo': 'bar' },
   });

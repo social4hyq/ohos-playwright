@@ -3,7 +3,7 @@
 // 幂等（__ohosPatch 标志防止重复调用）。
 
 import type { BrowserContext, Page } from '@playwright/test'
-import { clearBeforeunload, makeSafePageClose, createPopupPage, createPageViaCDP, BEFOREUNLOAD_TRACKING_SCRIPT, safeResetPage } from './page-patch.mts'
+import { clearBeforeunload, makeSafePageClose, createPopupPage, createPageViaCDP, BEFOREUNLOAD_TRACKING_SCRIPT, safeResetPage, installPopupOnPage } from './page-patch.mts'
 
 // Bridge page-level events to context level. ArkWeb does not emit console,
 // dialog, or pageerror events at the browser context level (verified with CDP
@@ -111,6 +111,10 @@ export function applyContextPatches(ctx: BrowserContext, opts?: { isDefault?: bo
       ;(p as any).close = makeSafePageClose(p, ctx)
     }
     installEventBridge(ctx, p)
+    // Install popup interceptor + poller so window.open() on new-context
+    // pages routes through our CDP createTarget path instead of triggering
+    // native window.open (which closes the source tab under ArkWeb).
+    await installPopupOnPage(p, ctx)
     return p
   }
   ;(ctx as any).newPage = async () => {

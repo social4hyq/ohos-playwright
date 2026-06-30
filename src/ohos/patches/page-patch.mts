@@ -234,6 +234,89 @@ export async function createPopupPage(
   }
 }
 
+// installPopupOnPage — Lightweight popup interceptor + poller for pages that
+// are NOT the fixture's anchor page (e.g. pages created by browser.newContext()
+// + ctx.newPage()). The full installPageWrappers is only called on the anchor
+// page; this function gives non-anchor pages window.open interception so
+// popup tests in new contexts don't trigger native window.open (which closes
+// the source tab under ArkWeb).
+export type PopupCleanup = () => void
+export async function installPopupOnPage(page: Page, context: BrowserContext): Promise<PopupCleanup> {
+  const origEvaluate = page.evaluate.bind(page)
+  const ctxEmit = (context as unknown as { emit: (e: string, v: unknown) => void }).emit.bind(context)
+  const popupById = new Map<number, Page>()
+
+  if (!(page as any).__ohosPopupPatched) {
+    ;(page as any).__ohosPopupPatched = true
+    const installInterceptor = () => {
+      if ((window as unknown as Record<string, unknown>)['__ohosPopupPatched']) return
+      ;(window as unknown as Record<string, unknown>)['__ohosPopupPatched'] = true
+      const top = (window.top as unknown as Record<string, unknown>) ?? (window as unknown as Record<string, unknown>)
+      if (!(top as Record<string, unknown>)['__ohosPopupQueue']) {
+        ;(top as Record<string, unknown>)['__ohosPopupQueue'] = [] as Array<{ url: string; id: number }>
+      }
+      if (!(top as Record<string, unknown>)['__ohosPopupCloseQueue']) {
+        ;(top as Record<string, unknown>)['__ohosPopupCloseQueue'] = [] as number[]
+      }
+      if (!(top as Record<string, unknown>)['__ohosPopupSeq']) {
+        ;(top as Record<string, unknown>)['__ohosPopupSeq'] = 0
+      }
+      ;(window as unknown as { open: typeof window.open }).open = ((url?: string | URL) => {
+        const id = ++((top as Record<string, unknown>)['__ohosPopupSeq'] as number)
+        ;((top as Record<string, unknown>)['__ohosPopupQueue'] as Array<{ url: string; id: number }>).push({ url: String(url ?? ''), id })
+        const closeQueue = (top as Record<string, unknown>)['__ohosPopupCloseQueue'] as number[]
+        return { closed: false, close: () => { closeQueue.push(id) }, postMessage: () => {}, focus: () => {} } as unknown as Window
+      }) as typeof window.open
+    }
+    await page.addInitScript(installInterceptor)
+    await origEvaluate(installInterceptor).catch(() => { /* page may be gone */ })
+  }
+
+  const poller = setInterval(async () => {
+    try {
+      const pending = await origEvaluate(() => {
+        const arr = (window as unknown as Record<string, unknown>)['__ohosPopupQueue'] as Array<{ url: string; id: number }>
+        const copy = arr ? [...arr] : []
+        if (arr) arr.length = 0
+        return copy
+      })
+      for (const { url, id } of pending ?? []) {
+        let emitted: Page | null = null
+        try { emitted = await createPopupPage(context, page, url || 'about:blank') } catch {}
+        if (!emitted) {
+          const idle = context.pages().find(p => p !== page && p.url() === 'about:blank')
+          if (idle) emitted = idle
+        }
+        if (emitted) {
+          popupById.set(id, emitted)
+          if (!(emitted as any).__ohosOpenerPatched) {
+            ;(emitted as any).__ohosOpenerPatched = true
+            const origOpener = (emitted as any).opener?.bind(emitted)
+            ;(emitted as any).opener = async () => {
+              try { const real = origOpener ? await origOpener() : null; if (real) return real } catch {}
+              return page
+            }
+          }
+          ctxEmit('page', emitted)
+          ;(page as any).emit('popup', emitted)
+        } else {
+          const stub = { waitForLoadState: async () => {}, url: () => url, close: async () => {}, opener: async () => null, context: () => context }
+          ctxEmit('page', stub as unknown as Page)
+          ;(page as any).emit('popup', stub as unknown as Page)
+        }
+      }
+    } catch {}
+  }, 150)
+
+  return () => {
+    clearInterval(poller)
+    for (const popup of popupById.values()) {
+      try { popup.close?.() } catch {}
+    }
+    popupById.clear()
+  }
+}
+
 export async function installPageWrappers(
   page: Page,
   context: BrowserContext,
