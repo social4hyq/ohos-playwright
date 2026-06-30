@@ -373,12 +373,15 @@ export async function installPageWrappers(
           }
         }
         // 3) Fallback B：退回原 stub（保持兼容）
+        // Include context() and opener() so tests that check popup.context() or
+        // popup.opener() on a stub don't fail with "not a function".
         if (!emitted) {
           const stub = {
             waitForLoadState: async () => {},
             url: () => url,
             close: async () => {},
             opener: async () => null,
+            context: () => context,
           }
           ctxEmit('page', stub as unknown as Page)
           // Emit 'popup' on originating page so waitForEvent('popup') works.
