@@ -273,6 +273,8 @@ const _handledFixmePrefixes = [
   'ArkWeb: navigator.webdriver',
   'ArkWeb: window.open via CDP 不建立 opener 关系',
   'ArkWeb: window.open via CDP 不创建真实 popup',
+  'ArkWeb: 不传播 SSL 证书错误到 CDP',
+  'ArkWeb: page.goto 不 honor',
 ]
 ;(test as any).fixme = function(condition: any, description?: string) {
   if (condition && typeof description === 'string') {
