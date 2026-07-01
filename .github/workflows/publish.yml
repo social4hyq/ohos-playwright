@@ -31,6 +31,9 @@ jobs:
 
       - run: npm run build
 
+      - name: Fix CLI permissions
+        run: chmod +x dist/cli.mjs
+
       - run: npm test
 
       - run: npm publish --provenance --access public
