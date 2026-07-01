@@ -92,7 +92,6 @@ it.describe('element screenshot', () => {
   });
 
   it('should capture full element when larger than viewport', async ({ page }) => {
-    it.fixme(true, 'ArkWeb: 渲染差异（字体/抗锯齿），截图与 baseline 不匹配');
     await page.setViewportSize({ width: 500, height: 500 });
 
     await page.setContent(`
@@ -223,7 +222,6 @@ it.describe('element screenshot', () => {
   });
 
   it('should work for an element with an offset', async ({ page }) => {
-    it.fixme(true, 'ArkWeb: 渲染差异（subpixel/抗锯齿），截图与 baseline 不匹配');
     await page.setContent('<div style="position:absolute; top: 10.3px; left: 20.4px;width:50.3px;height:20.2px;border:1px solid black;"></div>');
     const elementHandle = await page.$('div');
     const screenshot = await elementHandle.screenshot();

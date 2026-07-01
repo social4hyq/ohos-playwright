@@ -26,7 +26,6 @@ it('should work @smoke', async ({ page, server }) => {
 
 it('should work with file URL', async ({ page, asset, isAndroid, mode, channel }) => {
   it.skip(isAndroid, 'No files on Android');
-  it.fixme(true, 'ArkWeb: file:// URL 返回 ERR_ACCESS_DENIED（沙箱限制）');
   it.skip(mode.startsWith('service'));
   it.skip(channel === 'webkit-wsl', 'separate filesystem on wsl');
 
@@ -38,7 +37,6 @@ it('should work with file URL', async ({ page, asset, isAndroid, mode, channel }
 
 it('should work with file URL with subframes', async ({ page, asset, isAndroid, mode, channel }) => {
   it.skip(isAndroid, 'No files on Android');
-  it.fixme(true, 'ArkWeb: file:// URL 返回 ERR_ACCESS_DENIED（沙箱限制）');
   it.skip(mode.startsWith('service'));
   it.skip(channel === 'webkit-wsl', 'separate filesystem on wsl');
 
@@ -402,7 +400,6 @@ it('should fail when exceeding default maximum navigation timeout', async ({ pag
 
 it('should fail when exceeding browser context navigation timeout', async ({ page, server, playwright, isAndroid }) => {
   it.skip(isAndroid, 'No context per test');
-  it.fixme(true, 'ArkWeb: page.goto 不 honor setDefaultNavigationTimeout，hang 直到外层测试超时');
 
   // Hang for request to the empty.html
   server.setRoute('/empty.html', (req, res) => { });
@@ -416,7 +413,6 @@ it('should fail when exceeding browser context navigation timeout', async ({ pag
 
 it('should fail when exceeding default maximum timeout', async ({ page, server, playwright, isAndroid, isElectron }) => {
   it.skip(isAndroid || isElectron, 'No context per test');
-  it.fixme(true, 'ArkWeb: page.goto 不 honor setDefaultTimeout，hang 直到外层测试超时');
 
   // Hang for request to the empty.html
   server.setRoute('/empty.html', (req, res) => { });
@@ -433,7 +429,6 @@ it('should fail when exceeding default maximum timeout', async ({ page, server, 
 
 it('should fail when exceeding browser context timeout', async ({ page, server, playwright, isAndroid, isElectron }) => {
   it.skip(isAndroid || isElectron, 'No context per test');
-  it.fixme(true, 'ArkWeb: page.goto 不 honor setDefaultTimeout，hang 直到外层测试超时');
 
   // Hang for request to the empty.html
   server.setRoute('/empty.html', (req, res) => { });
@@ -448,7 +443,6 @@ it('should fail when exceeding browser context timeout', async ({ page, server, 
 });
 
 it('should prioritize default navigation timeout over default timeout', async ({ page, server, playwright }) => {
-  it.fixme(true, 'ArkWeb: page.goto 不 honor setDefaultNavigationTimeout，hang 直到外层测试超时');
   // Hang for request to the empty.html
   server.setRoute('/empty.html', (req, res) => { });
   let error = null;
@@ -664,7 +658,6 @@ it('should work with self requesting page', async ({ page, server }) => {
 });
 
 it('should fail when navigating and show the url at the error message', async function({ page, server, httpsServer }) {
-  it.fixme(true, 'ArkWeb: 不传播 SSL 证书错误到 CDP，page.goto 不抛错');
   const url = httpsServer.PREFIX + '/redirect/1.html';
   let error = null;
   try {
@@ -677,7 +670,6 @@ it('should fail when navigating and show the url at the error message', async fu
 
 it('should be able to navigate to a page controlled by service worker', async ({ page, server, isElectron }) => {
   it.skip(isElectron);
-  it.fixme(true, 'ArkWeb: service worker activation 慢/不可靠，导致二次 goto hang');
   await page.goto(server.PREFIX + '/serviceworkers/fetch/sw.html');
   await page.evaluate(() => window['activationPromise']);
   await page.goto(server.PREFIX + '/serviceworkers/fetch/sw.html');
@@ -723,7 +715,6 @@ it('should reject referer option when setExtraHTTPHeaders provides referer', asy
 });
 
 it('should override referrer-policy', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: 不 honor Referrer-Policy: no-referrer，subresource 仍带 referer');
   server.setRoute('/grid.html', (req, res) => {
     res.setHeader('Referrer-Policy', 'no-referrer');
     server.serveFile(req, res);
@@ -758,7 +749,6 @@ it('should work with lazy loading iframes', async ({ page, server, isAndroid }) 
 });
 
 it('should report raw buffer for main resource', async ({ page, server, browserName, platform, channel }) => {
-  it.fixme(true, 'ArkWeb: response.body() 返回 Latin-1 解码后的字符串，不是原始 buffer');
   it.fail(browserName === 'chromium', 'Chromium sends main resource as text');
   it.fail(browserName === 'webkit' && platform === 'win32' && channel !== 'webkit-wsl', 'Same here');
 
@@ -819,7 +809,6 @@ it('should properly wait for load', async ({ page, server, browserName }) => {
 
 it('should not resolve goto upon window.stop()', async ({ browserName, page, server, isBidi }) => {
   it.fixme(browserName === 'firefox' && !isBidi, 'load/domcontentloaded events are flaky');
-  it.fixme(true, 'ArkWeb: window.stop 时序竞态，goto 提前 resolve');
   it.skip(process.env.PW_CLOCK === 'frozen');
 
   let response;

@@ -20,7 +20,6 @@ import type { Frame } from 'playwright-core';
 import type { TestServer } from '../fixtures/testserver.js';
 
 it('should navigate to empty page with networkidle', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: network idle 行为差异');
   const response = await page.goto(server.EMPTY_PAGE, { waitUntil: 'networkidle' });
   expect(response.status()).toBe(200);
 });
@@ -83,14 +82,12 @@ async function networkIdleTest(frame: Frame, server: TestServer, action: () => P
 }
 
 it('should wait for networkidle to succeed navigation', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: network idle 行为差异');
   await networkIdleTest(page.mainFrame(), server, () => {
     return page.goto(server.PREFIX + '/networkidle.html', { waitUntil: 'networkidle' });
   });
 });
 
 it('should wait for networkidle to succeed navigation with request from previous navigation', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: network idle 行为差异');
   await page.goto(server.EMPTY_PAGE);
   server.setRoute('/foo.js', () => {});
   await page.setContent(`<script>fetch('foo.js');</script>`);
@@ -100,7 +97,6 @@ it('should wait for networkidle to succeed navigation with request from previous
 });
 
 it('should wait for networkidle in waitForNavigation', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: network idle 行为差异');
   await networkIdleTest(page.mainFrame(), server, () => {
     const promise = page.waitForNavigation({ waitUntil: 'networkidle' });
     void page.goto(server.PREFIX + '/networkidle.html');
@@ -109,7 +105,6 @@ it('should wait for networkidle in waitForNavigation', async ({ page, server }) 
 });
 
 it('should wait for networkidle in setContent', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: network idle 行为差异');
   await page.goto(server.EMPTY_PAGE);
   await networkIdleTest(page.mainFrame(), server, () => {
     return page.setContent(`<script src='networkidle.js'></script>`, { waitUntil: 'networkidle' });
@@ -117,7 +112,6 @@ it('should wait for networkidle in setContent', async ({ page, server }) => {
 });
 
 it('should wait for networkidle in setContent with request from previous navigation', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: network idle 行为差异');
   await page.goto(server.EMPTY_PAGE);
   server.setRoute('/foo.js', () => {});
   await page.setContent(`<script>fetch('foo.js');</script>`);
@@ -127,14 +121,12 @@ it('should wait for networkidle in setContent with request from previous navigat
 });
 
 it('should wait for networkidle when navigating iframe', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: network idle 行为差异');
   await page.goto(server.PREFIX + '/frames/one-frame.html');
   const frame = page.mainFrame().childFrames()[0];
   await networkIdleTest(frame, server, () => frame.goto(server.PREFIX + '/networkidle.html', { waitUntil: 'networkidle' }));
 });
 
 it('should wait for networkidle in setContent from the child frame', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: network idle 行为差异');
   await page.goto(server.EMPTY_PAGE);
   await networkIdleTest(page.mainFrame(), server, () => {
     return page.setContent(`<iframe src='networkidle.html'></iframe>`, { waitUntil: 'networkidle' });
@@ -142,14 +134,12 @@ it('should wait for networkidle in setContent from the child frame', async ({ pa
 });
 
 it('should wait for networkidle from the child frame', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: network idle 行为差异');
   await networkIdleTest(page.mainFrame(), server, () => {
     return page.goto(server.PREFIX + '/networkidle-frame.html', { waitUntil: 'networkidle' });
   });
 });
 
 it('should wait for networkidle from the popup', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: network idle 行为差异');
   await page.goto(server.EMPTY_PAGE);
   await page.setContent(`
     <button id=box1 onclick="window.open('./popup/popup.html')">Button1</button>
@@ -168,7 +158,6 @@ it('should wait for networkidle from the popup', async ({ page, server }) => {
 });
 
 it('should wait for networkidle when iframe attaches and detaches', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: network idle 行为差异');
   server.setRoute('/empty.html', () => {});
   let done = false;
   const promise = page.setContent(`
@@ -190,7 +179,6 @@ it('should wait for networkidle when iframe attaches and detaches', async ({ pag
 });
 
 it('should work after repeated navigations in the same page', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: network idle 行为差异');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/18283' });
 
   let requestCount = 0;

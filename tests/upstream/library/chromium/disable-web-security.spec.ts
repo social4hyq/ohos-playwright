@@ -24,7 +24,6 @@ it.use({
 });
 
 it('test utility world in popup w/ --disable-web-security', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: disable-web-security 不支持');
   server.setRoute('/main.html', (req, res) => {
     res.writeHead(200, {
       'Content-Type': 'text/html'
@@ -46,7 +45,6 @@ it('test utility world in popup w/ --disable-web-security', async ({ page, serve
 });
 
 it('test init script w/ --disable-web-security', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: disable-web-security 不支持');
   server.setRoute('/main.html', (req, res) => {
     res.writeHead(200, {
       'Content-Type': 'text/html'

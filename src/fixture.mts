@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { test as base } from '@playwright/test'
+import { test as base, chromium } from '@playwright/test'
 import type { Browser, BrowserContext, Page } from '@playwright/test'
 import { INFO_PATH, type CdpInfo } from './info-path.mts'
 import { getOhosDevice } from './ohos/device.mts'
@@ -74,8 +74,6 @@ export const test = base.extend<{
     // directly to the remote Chrome/Edge endpoint for A/B comparison runs.
     async ({}, use: (b: Browser) => Promise<void>) => {
       if (process.env.OHOS_PW_CDP_URL) {
-        process.env.PW_CHROMIUM_ATTACH_TO_OTHER = '1'
-        const { chromium } = await import('@playwright/test')
         const raw = await chromium.connectOverCDP(process.env.OHOS_PW_CDP_URL)
         await use(raw)
         return
@@ -109,7 +107,7 @@ export const test = base.extend<{
     // return null __cdpDefaultContext on a stale realBrowser. device.browser()
     // probes the cached endpoint and reconnects if needed, repopulating
     // __cdpDefaultContext on the fresh realBrowser before we read it.
-    await getOhosDevice().browser()
+    if (!process.env.OHOS_PW_CDP_URL) await getOhosDevice().browser()
     // __cdpDefaultContext: connectOverCDP 时预存的 ArkWeb 默认 context
     // browser.contexts() 已被 applyBrowserPatches 过滤掉该 context（对齐 launched browser 行为）
     const ctx = (browser as any).__cdpDefaultContext ?? browser.contexts()[0]
@@ -123,11 +121,10 @@ export const test = base.extend<{
       ;(ctx as unknown as { _options: Record<string, unknown> })._options.baseURL = baseURL
     }
 
-    // Apply ArkWeb context patches (idempotent — guarded by __ohosPatch).
-    // applyBrowserPatches already calls this when the browser connects; calling
-    // again here is safe and ensures the context is always patched even if the
-    // fixture runs before device.browser() completes patching.
-    applyContextPatches(ctx)
+    if (!process.env.OHOS_PW_CDP_URL) {
+      // Apply ArkWeb context patches (idempotent — guarded by __ohosPatch).
+      applyContextPatches(ctx)
+    }
 
     // 每次测试前重置共享 context 状态。
     await ctx.clearCookies().catch(() => {})

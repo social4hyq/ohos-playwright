@@ -18,10 +18,8 @@
 import { browserTest as base, expect } from '../fixtures/upstream-fixture.js';
 
 const it = base.extend<{ failsOn401: boolean }>({
-  // ArkWeb's chromium returns the 401 response object (does not throw
-  // net::ERR_INVALID_AUTH_CREDENTIALS), so behave like headless-shell here.
-  failsOn401: async ({}, use) => {
-    await use(false);
+  failsOn401: async ({ browserName, isHeadlessShell }, use) => {
+    await use(browserName === 'chromium' && !isHeadlessShell);
   },
 });
 

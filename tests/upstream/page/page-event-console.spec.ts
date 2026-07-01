@@ -92,7 +92,6 @@ it('should work for different console API calls', async ({ page }) => {
 });
 
 it('should format the message correctly with time/timeLog/timeEnd', async ({ page, browserName, isBidi }) => {
-  it.fixme(true, 'ArkWeb: console 事件未触发');
   it.fixme(browserName === 'firefox' && !isBidi, 'https://github.com/microsoft/playwright/issues/10580');
   const messages = [];
   page.on('console', msg => messages.push(msg));
@@ -132,7 +131,6 @@ it('should not fail for window object', async ({ page, browserName, channel }) =
 });
 
 it('should trigger correct Log', async ({ page, server, browserName, isWindows }) => {
-  it.fixme(true, 'ArkWeb: console 事件未触发');
   it.skip(browserName === 'webkit' && isWindows, 'Upstream issue https://bugs.webkit.org/show_bug.cgi?id=229515');
   await page.goto('about:blank');
   const [message] = await Promise.all([
@@ -160,7 +158,6 @@ it('should have location for console API calls', async ({ page, server }) => {
 });
 
 it('should not throw when there are console messages in detached iframes', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: console 事件未触发');
   // @see https://github.com/GoogleChrome/puppeteer/issues/3865
   await page.goto(server.EMPTY_PAGE);
   const [popup] = await Promise.all([

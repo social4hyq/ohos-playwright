@@ -24,6 +24,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // @ts-ignore — resolved via package exports: ./dist/fixture.mjs
 import { test as ohosBase } from 'ohos-playwright/fixture';
 
+const isRemoteCdp = !!process.env.OHOS_PW_CDP_URL
+
 // ── Shim types that mirror playwright-official/tests/config/browserTest.ts ───
 
 type BrowserTestWorkerFixtures = {

@@ -72,7 +72,6 @@ it('should format date', async ({ browser, server, browserName }) => {
 });
 
 it('should format number in popups', async ({ browser, server }) => {
-  it.fixme(true, 'ArkWeb: window.open(url) 弹窗未触发 popup 事件');
   const context = await browser.newContext({ locale: 'fr-FR' });
   const page = await context.newPage();
   await page.goto(server.EMPTY_PAGE);
@@ -88,7 +87,6 @@ it('should format number in popups', async ({ browser, server }) => {
 });
 
 it('should affect navigator.language in popups', async ({ browser, server }) => {
-  it.fixme(true, 'ArkWeb: window.open(url) 弹窗未触发 popup 事件');
   const context = await browser.newContext({ locale: 'fr-FR' });
   const page = await context.newPage();
   await page.goto(server.EMPTY_PAGE);
@@ -103,7 +101,6 @@ it('should affect navigator.language in popups', async ({ browser, server }) => 
 });
 
 it('should work for multiple pages sharing same process', async ({ browser, server }) => {
-  it.fixme(true, 'ArkWeb: 嵌套 window.open() popup 未触发事件');
   const context = await browser.newContext({ locale: 'ru-RU' });
   const page = await context.newPage();
   await page.goto(server.EMPTY_PAGE);

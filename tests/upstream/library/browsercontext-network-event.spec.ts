@@ -19,7 +19,6 @@ import { browserTest as it, expect } from '../fixtures/upstream-fixture.js';
 import type { Request, Response } from '@playwright/test';
 
 it('BrowserContext.Events.Request', async ({ context, server }) => {
-  it.fixme(true, 'ArkWeb: target=_blank 弹窗未触发 context page/request 事件');
   const page = await context.newPage();
   const requests: Request[] = [];
   context.on('request', request => requests.push(request));
@@ -39,7 +38,6 @@ it('BrowserContext.Events.Request', async ({ context, server }) => {
 });
 
 it('BrowserContext.Events.Response', async ({ context, server }) => {
-  it.fixme(true, 'ArkWeb: target=_blank 弹窗未触发 context page/response 事件');
   const page = await context.newPage();
   const responses: Response[] = [];
   context.on('response', response => responses.push(response));
@@ -76,7 +74,6 @@ it('BrowserContext.Events.RequestFailed', async ({ context, server }) => {
 
 
 it('BrowserContext.Events.RequestFinished', async ({ context, server }) => {
-  it.fixme(true, 'ArkWeb: context.waitForEvent(requestfinished) 未触发');
   const page = await context.newPage();
   const [response] = await Promise.all([
     page.goto(server.EMPTY_PAGE),
@@ -108,7 +105,6 @@ it('should fire events in proper order', async ({ context, server }) => {
 });
 
 it('should not fire events for favicon or favicon redirects', async ({ context, page, server, browserName, headless, channel }) => {
-  it.fixme(true, 'ArkWeb: favicon 请求在 ArkWeb 上行为不一致');
   it.skip(headless && browserName !== 'firefox', 'headless browsers, except firefox, do not request favicons');
   it.skip(!headless && browserName === 'webkit', 'headed webkit does not have a favicon feature');
   const favicon = `/no-cache/favicon.ico`;
@@ -150,7 +146,6 @@ it('should not fire events for favicon or favicon redirects', async ({ context, 
 });
 
 it('should reject response.finished if context closes', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: context.close() 后 response.finished 行为不确定');
   await page.goto(server.EMPTY_PAGE);
   server.setRoute('/get', (req, res) => {
     // In Firefox, |fetch| will be hanging until it receives |Content-Type| header

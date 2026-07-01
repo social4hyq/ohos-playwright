@@ -311,7 +311,6 @@ Call log`);
 
 test('toHaveScreenshot should populate matcherResult', async ({ page, server, isAndroid }) => {
   test.skip(isAndroid);
-  test.fixme(true, 'ArkWeb: toHaveScreenshot 失败时不 populate matcherResult（截图/diff 流程差异）');
   await page.setViewportSize({ width: 500, height: 500 });
   await page.goto(server.EMPTY_PAGE);
   const e = await expect(page).toHaveScreenshot('screenshot-sanity.png').catch(e => e);

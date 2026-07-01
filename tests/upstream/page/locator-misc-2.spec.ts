@@ -18,7 +18,6 @@
 import { test as it, expect } from '../fixtures/upstream-fixture.js';
 
 it('should press @smoke', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: locator 行为差异');
   await page.setContent(`<input type='text' />`);
   await page.locator('input').press('h');
   expect(await page.$eval('input', input => input.value)).toBe('h');
@@ -75,7 +74,6 @@ it('should scroll zero-sized element into view', async ({ page, isAndroid, isEle
 });
 
 it('should select textarea', async ({ page, server, browserName }) => {
-  it.fixme(true, 'ArkWeb: locator 行为差异');
   await page.goto(server.PREFIX + '/input/textarea.html');
   const textarea = page.locator('textarea');
   await textarea.evaluate(textarea => (textarea as HTMLTextAreaElement).value = 'some value');
@@ -84,14 +82,12 @@ it('should select textarea', async ({ page, server, browserName }) => {
 });
 
 it('should type', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: locator 行为差异');
   await page.setContent(`<input type='text' />`);
   await page.locator('input').type('hello');
   expect(await page.$eval('input', input => input.value)).toBe('hello');
 });
 
 it('should pressSequentially', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: locator 行为差异');
   await page.setContent(`<input type='text' />`);
   await page.locator('input').pressSequentially('hello');
   expect(await page.$eval('input', input => input.value)).toBe('hello');
@@ -119,7 +115,6 @@ it('should return bounding box', async ({ page, server, browserName, headless, i
 });
 
 it('should waitFor', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: locator 行为差异');
   await page.setContent(`<div></div>`);
   const locator = page.locator('span');
   const promise = locator.waitFor();
@@ -129,7 +124,6 @@ it('should waitFor', async ({ page }) => {
 });
 
 it('should waitFor hidden', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: locator 行为差异');
   await page.setContent(`<div><span>target</span></div>`);
   const locator = page.locator('span');
   const promise = locator.waitFor({ state: 'hidden' });
@@ -138,7 +132,6 @@ it('should waitFor hidden', async ({ page }) => {
 });
 
 it('should combine visible with other selectors', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: locator 行为差异');
   await page.setContent(`<div>
   <div class="item" style="display: none">Hidden data0</div>
   <div class="item">visible data1</div>
@@ -153,7 +146,6 @@ it('should combine visible with other selectors', async ({ page }) => {
 });
 
 it('should support filter(visible)', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: locator 行为差异');
   await page.setContent(`<div>
     <div class="item" style="display: none">Hidden data0</div>
     <div class="item">visible data1</div>
@@ -170,7 +162,6 @@ it('should support filter(visible)', async ({ page }) => {
 });
 
 it('locator.count should work with deleted Map in main world', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: locator 行为差异');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/11254' });
   await page.evaluate('Map = 1');
   await page.locator('#searchResultTableDiv .x-grid3-row').count();
@@ -178,7 +169,6 @@ it('locator.count should work with deleted Map in main world', async ({ page }) 
 });
 
 it('Locator.locator() and FrameLocator.locator() should accept locator', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: locator 行为差异');
   await page.setContent(`
     <div><input value=outer></div>
     <iframe srcdoc="<div><input value=inner></div>"></iframe>

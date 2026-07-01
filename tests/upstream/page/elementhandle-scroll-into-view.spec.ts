@@ -19,7 +19,6 @@ import { test as it, expect } from '../fixtures/upstream-fixture.js';
 
 it('should work @smoke', async ({ page, server, isAndroid }) => {
   it.fixme(isAndroid);
-  it.fixme(true, 'ArkWeb: scrollIntoViewIfNeeded 后 subpixel 残留（0.37 而非 0）');
 
   await page.goto(server.PREFIX + '/offscreenbuttons.html');
   for (let i = 0; i < 11; ++i) {

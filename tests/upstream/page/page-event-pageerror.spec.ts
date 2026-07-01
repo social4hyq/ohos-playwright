@@ -67,7 +67,6 @@ it('should contain sourceURL', async ({ page, server, browserName }) => {
 });
 
 it('should contain the Error.name property', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: pageerror 事件未触发');
   const [error] = await Promise.all([
     page.waitForEvent('pageerror'),
     page.evaluate(() => {
@@ -83,7 +82,6 @@ it('should contain the Error.name property', async ({ page }) => {
 });
 
 it('should support an empty Error.name property', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: pageerror 事件未触发');
   const [error] = await Promise.all([
     page.waitForEvent('pageerror'),
     page.evaluate(() => {
@@ -99,7 +97,6 @@ it('should support an empty Error.name property', async ({ page }) => {
 });
 
 it('should handle odd values', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: pageerror 事件未触发');
   const cases = [
     [null, 'null'],
     [undefined, 'undefined'],
@@ -118,7 +115,6 @@ it('should handle odd values', async ({ page }) => {
 });
 
 it('should handle object', async ({ page, browserName }) => {
-  it.fixme(true, 'ArkWeb: pageerror 事件未触发');
   const [error] = await Promise.all([
     page.waitForEvent('pageerror'),
     page.evaluate(() => {
@@ -129,7 +125,6 @@ it('should handle object', async ({ page, browserName }) => {
 });
 
 it('should handle window', async ({ page, browserName }) => {
-  it.fixme(true, 'ArkWeb: pageerror 事件未触发');
   const [error] = await Promise.all([
     page.waitForEvent('pageerror'),
     page.evaluate(() => {
@@ -157,7 +152,6 @@ it('should emit error from unhandled rejects', async ({ page, browserName }) => 
 });
 
 it('pageErrors should work', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: pageerror 事件未触发');
   await page.evaluate(async () => {
     for (let i = 0; i < 301; i++)
       window.builtins.setTimeout(() => { throw new Error('error' + i); }, 0);
@@ -176,7 +170,6 @@ it('pageErrors should work', async ({ page }) => {
 });
 
 it('clearPageErrors should work', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: pageerror 事件未触发');
   await page.evaluate(() => {
     window.builtins.setTimeout(() => { throw new Error('error1'); }, 0);
     window.builtins.setTimeout(() => { throw new Error('error2'); }, 0);

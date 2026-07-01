@@ -19,7 +19,6 @@ import { browserTest as it, expect } from '../fixtures/upstream-fixture.js';
 import { attachFrame } from '../fixtures/upstream-utils.js';
 
 it('should not be visible in context.pages', async ({ contextFactory }) => {
-  it.fixme(true, 'ArkWeb: page.close() 在 non-default context 中未正确从 context.pages 移除');
   const context = await contextFactory();
   const page = await context.newPage();
   expect(context.pages()).toContain(page);

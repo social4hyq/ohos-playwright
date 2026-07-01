@@ -18,7 +18,6 @@
 import { browserTest as it, expect } from '../fixtures/upstream-fixture.js';
 
 it('should have url', async ({ browser, server }) => {
-  it.fixme(true, 'ArkWeb: browser.newContext() + popup/window.open 事件未触发');
   const context = await browser.newContext();
   const page = await context.newPage();
   const [otherPage] = await Promise.all([
@@ -30,7 +29,6 @@ it('should have url', async ({ browser, server }) => {
 });
 
 it('should have url after domcontentloaded', async ({ browser, server }) => {
-  it.fixme(true, 'ArkWeb: browser.newContext() + popup/window.open 事件未触发');
   const context = await browser.newContext();
   const page = await context.newPage();
   const [otherPage] = await Promise.all([
@@ -43,7 +41,6 @@ it('should have url after domcontentloaded', async ({ browser, server }) => {
 });
 
 it('should have about:blank url with domcontentloaded', async ({ browser, server }) => {
-  it.fixme(true, 'ArkWeb: browser.newContext() + popup/window.open 事件未触发');
   const context = await browser.newContext();
   const page = await context.newPage();
   const [otherPage] = await Promise.all([
@@ -56,7 +53,6 @@ it('should have about:blank url with domcontentloaded', async ({ browser, server
 });
 
 it('should have about:blank for empty url with domcontentloaded', async ({ browser, server }) => {
-  it.fixme(true, 'ArkWeb: browser.newContext() + popup/window.open 事件未触发');
   const context = await browser.newContext();
   const page = await context.newPage();
   const [otherPage] = await Promise.all([
@@ -69,7 +65,6 @@ it('should have about:blank for empty url with domcontentloaded', async ({ brows
 });
 
 it('should report when a new page is created and closed', async ({ browser, server }) => {
-  it.fixme(true, 'ArkWeb: browser.newContext() + popup/window.open 事件未触发');
   const context = await browser.newContext();
   const page = await context.newPage();
   const [otherPage] = await Promise.all([
@@ -97,7 +92,6 @@ it('should report when a new page is created and closed', async ({ browser, serv
 });
 
 it('should report initialized pages', async ({ browser, server }) => {
-  it.fixme(true, 'ArkWeb: browser.newContext() + popup/window.open 事件未触发');
   const context = await browser.newContext();
   const pagePromise = context.waitForEvent('page');
   void context.newPage();
@@ -113,7 +107,6 @@ it('should report initialized pages', async ({ browser, server }) => {
 });
 
 it('should not crash while redirecting of original request was missed', async ({ browser, server }) => {
-  it.fixme(true, 'ArkWeb: browser.newContext() + popup/window.open 事件未触发');
   const context = await browser.newContext();
   const page = await context.newPage();
   let serverResponse = null;
@@ -134,7 +127,6 @@ it('should not crash while redirecting of original request was missed', async ({
 });
 
 it('should have an opener', async ({ browser, server }) => {
-  it.fixme(true, 'ArkWeb: browser.newContext() + popup/window.open 事件未触发');
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto(server.EMPTY_PAGE);
@@ -149,7 +141,6 @@ it('should have an opener', async ({ browser, server }) => {
 });
 
 it('should fire page lifecycle events', async function({ browser, server }) {
-  it.fixme(true, 'ArkWeb: browser.newContext() + popup/window.open 事件未触发');
   const context = await browser.newContext();
   const events = [];
   context.on('page', async page => {
@@ -167,7 +158,6 @@ it('should fire page lifecycle events', async function({ browser, server }) {
 });
 
 it('should work with Shift-clicking', async ({ browser, server, browserName }) => {
-  it.fixme(true, 'ArkWeb: browser.newContext() + popup/window.open 事件未触发');
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto(server.EMPTY_PAGE);
@@ -181,7 +171,6 @@ it('should work with Shift-clicking', async ({ browser, server, browserName }) =
 });
 
 it('should work with Ctrl-clicking', async ({ browser, server, browserName, isBidi }) => {
-  it.fixme(true, 'ArkWeb: browser.newContext() + popup/window.open 事件未触发');
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto(server.EMPTY_PAGE);

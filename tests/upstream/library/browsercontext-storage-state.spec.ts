@@ -22,7 +22,6 @@ import fs from 'fs';
 import type { BrowserContext } from 'playwright-core';
 
 it('should capture local storage', async ({ contextFactory }) => {
-  it.fixme(true, 'ArkWeb: storageState/indexedDB 不支持');
   const context = await contextFactory();
   const page1 = await context.newPage();
   await page1.route('**/*', route => {
@@ -202,7 +201,6 @@ it('should round-trip through the file', async ({ contextFactory, channel }, tes
 });
 
 it('should capture cookies', async ({ server, context, page, contextFactory }) => {
-  it.fixme(true, 'ArkWeb: storageState/indexedDB 不支持');
   server.setRoute('/setcookie.html', (req, res) => {
     res.setHeader('Set-Cookie', ['a=b', 'empty=']);
     res.end();
@@ -241,7 +239,6 @@ it('should capture cookies', async ({ server, context, page, contextFactory }) =
 });
 
 it('should not emit events about internal page', async ({ contextFactory }) => {
-  it.fixme(true, 'ArkWeb: storageState/indexedDB 不支持');
   const context = await contextFactory();
   const page = await context.newPage();
   await page.route('**/*', route => {
@@ -263,7 +260,6 @@ it('should not emit events about internal page', async ({ contextFactory }) => {
 });
 
 it('should not restore localStorage twice', async ({ contextFactory }) => {
-  it.fixme(true, 'ArkWeb: storageState/indexedDB 不支持');
   const context = await contextFactory({
     storageState: {
       cookies: [],
@@ -316,7 +312,6 @@ it('should handle malformed file', async ({ contextFactory, nodeVersion }, testI
 });
 
 it('should serialize storageState with lone surrogates', async ({ page, context, server }) => {
-  it.fixme(true, 'ArkWeb: storageState/indexedDB 不支持');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright-dotnet/issues/2819' });
   await page.goto(server.EMPTY_PAGE);
   await page.evaluate(() => window.localStorage.setItem('foo', String.fromCharCode(55934)));
@@ -325,7 +320,6 @@ it('should serialize storageState with lone surrogates', async ({ page, context,
 });
 
 it('should work when service worker is intefering', async ({ page, context, server, isAndroid, isElectron, electronMajorVersion }) => {
-  it.fixme(true, 'ArkWeb: storageState/indexedDB 不支持');
   it.skip(isAndroid);
   it.skip(isElectron && electronMajorVersion < 30, 'error: Browser context management is not supported.');
 
@@ -379,7 +373,6 @@ it('should work when service worker is intefering', async ({ page, context, serv
 });
 
 it('should set local storage in third-party context', async ({ contextFactory, server }) => {
-  it.fixme(true, 'ArkWeb: storageState/indexedDB 不支持');
   const context = await contextFactory({
     storageState: {
       cookies: [],
@@ -404,7 +397,6 @@ it('should set local storage in third-party context', async ({ contextFactory, s
 });
 
 it('should roundtrip local storage in third-party context', async ({ page, contextFactory, server }) => {
-  it.fixme(true, 'ArkWeb: storageState/indexedDB 不支持');
   await page.goto(server.EMPTY_PAGE);
   const frame = await attachFrame(page, 'frame1', server.CROSS_PROCESS_PREFIX + '/empty.html');
   await frame.evaluate(() => window.localStorage.setItem('name1', 'value1'));
@@ -421,7 +413,6 @@ it('should roundtrip local storage in third-party context', async ({ page, conte
 });
 
 it('should support IndexedDB', async ({ page, server, contextFactory }) => {
-  it.fixme(true, 'ArkWeb: storageState/indexedDB 不支持');
   await page.goto(server.PREFIX + '/to-do-notifications/index.html');
 
   await expect(page.locator('#notifications')).toMatchAriaSnapshot(`

@@ -37,7 +37,6 @@ it('should fail when element jumps during hit testing', async ({ page, mode }) =
 });
 
 it('should timeout waiting for hit target', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: click timeout 行为差异');
   await page.goto(server.PREFIX + '/input/button.html');
   const button = await page.$('button');
   await page.evaluate(() => {
@@ -59,7 +58,6 @@ it('should timeout waiting for hit target', async ({ page, server }) => {
 });
 
 it('should still click when force but hit target is obscured', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: click timeout 行为差异');
   await page.goto(server.PREFIX + '/input/button.html');
   const button = await page.$('button');
   await page.evaluate(() => {
@@ -77,7 +75,6 @@ it('should still click when force but hit target is obscured', async ({ page, se
 });
 
 it('should report wrong hit target subtree', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: click timeout 行为差异');
   await page.goto(server.PREFIX + '/input/button.html');
   const button = await page.$('button');
   await page.evaluate(() => {

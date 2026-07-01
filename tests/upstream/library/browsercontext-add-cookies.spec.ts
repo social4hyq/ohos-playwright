@@ -205,7 +205,6 @@ it('should isolate session cookies', async ({ context, server, browser }) => {
 });
 
 it('should isolate persistent cookies', async ({ context, server, browser }) => {
-  it.fixme(true, 'ArkWeb: 双 context 并行 newPage 触发 CDP WebSocket 断开');
   server.setRoute('/setcookie.html', (req, res) => {
     res.setHeader('Set-Cookie', 'persistent=persistent-value; max-age=3600');
     res.end();
@@ -226,7 +225,6 @@ it('should isolate persistent cookies', async ({ context, server, browser }) => 
 });
 
 it('should isolate send cookie header', async ({ server, context, browser }) => {
-  it.fixme(true, 'ArkWeb: browser.newContext() 不支持 (createBrowserContext not allowed)');
   let cookie = '';
   server.setRoute('/empty.html', (req, res) => {
     cookie = req.headers.cookie || '';

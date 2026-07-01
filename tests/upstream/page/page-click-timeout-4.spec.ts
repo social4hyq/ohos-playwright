@@ -18,7 +18,6 @@
 import { test as it, expect, rafraf } from '../fixtures/upstream-fixture.js';
 
 it('should timeout waiting for stable position', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: click timeout 行为差异');
   await page.goto(server.PREFIX + '/input/button.html');
   const button = await page.$('button');
   await button.evaluate(button => {

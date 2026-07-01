@@ -23,19 +23,16 @@ import { server as coreServer } from '../fixtures/coreBundle-stub.js';
 const { deviceDescriptors } = coreServer;
 
 it('should get the proper default viewport size', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: viewport 默认尺寸不匹配');
   await verifyViewport(page, 1280, 720);
 });
 
 it('should set the proper viewport size', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: viewport 尺寸不匹配');
   await verifyViewport(page, 1280, 720);
   await page.setViewportSize({ width: 345, height: 456 });
   await verifyViewport(page, 345, 456);
 });
 
 it('should return correct outerWidth and outerHeight', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: viewport/screen outerWidth/Height 尺寸不匹配');
   await page.setViewportSize({ width: 410, height: 420 });
   const size = await page.evaluate(() => {
     return {
@@ -60,7 +57,6 @@ it('landscape viewport should have width larger than height', async () => {
 });
 
 it('should emulate device width', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: viewport/screen emulation 尺寸不匹配');
   expect(page.viewportSize()).toEqual({ width: 1280, height: 720 });
   await page.setViewportSize({ width: 300, height: 300 });
   expect(await page.evaluate(() => window.screen.width)).toBe(300);
@@ -81,7 +77,6 @@ it('should emulate device width', async ({ page, server }) => {
 });
 
 it('should emulate device height', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: viewport/screen emulation 尺寸不匹配');
   expect(page.viewportSize()).toEqual({ width: 1280, height: 720 });
   await page.setViewportSize({ width: 300, height: 300 });
   expect(await page.evaluate(() => window.screen.height)).toBe(300);
@@ -193,7 +188,6 @@ browserTest('should be able to get correct orientation angle on non-mobile devic
 });
 
 it('should set window.screen.orientation.type for mobile devices', async ({ contextFactory, browserName, server, isBidi }) => {
-  it.fixme(true, 'ArkWeb: screen.orientation.type 模拟不支持');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/31151' });
   it.skip(browserName === 'firefox' && !isBidi, 'Firefox does not support mobile emulation');
   const context = await contextFactory(devices['iPhone 14']);

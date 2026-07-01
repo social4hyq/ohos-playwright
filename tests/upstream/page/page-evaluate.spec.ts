@@ -196,8 +196,7 @@ it('should work right after framenavigated', async ({ page, server }) => {
   expect(await frameEvaluation).toBe(42);
 });
 
-it.fixme('should work right after a cross-origin navigation', async ({ page, server }) => {
-  // ArkWeb: 跨 origin 导航后旧 execution context 立即销毁，frame.evaluate 时序竞态
+it('should work right after a cross-origin navigation', async ({ page, server }) => {
   await page.goto(server.EMPTY_PAGE);
   let frameEvaluation = null;
   page.on('framenavigated', async frame => {
@@ -515,7 +514,6 @@ it('should throw if underlying element was disposed', async ({ page }) => {
 });
 
 it('should simulate a user gesture', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: document.execCommand("copy") 在 evaluate 中返回 false（要求真实用户手势）');
   const result = await page.evaluate(() => {
     document.body.appendChild(document.createTextNode('test'));
     document.execCommand('selectAll');
@@ -546,8 +544,7 @@ it('should not throw an error when evaluation does a navigation', async ({ page,
   expect(result).toEqual([42]);
 });
 
-it.fixme('should not throw an error when evaluation does a synchronous navigation and returns an object', async ({ page, server, browserName }) => {
-  // ArkWeb: 同步导航时 execution context 立即销毁，evaluate 无法返回值
+it('should not throw an error when evaluation does a synchronous navigation and returns an object', async ({ page, server, browserName }) => {
   // It is important to be on about:blank for sync reload.
   const result = await page.evaluate(() => {
     window.location.reload();
@@ -556,8 +553,7 @@ it.fixme('should not throw an error when evaluation does a synchronous navigatio
   expect(result).toEqual({ a: 42 });
 });
 
-it.fixme('should not throw an error when evaluation does a synchronous navigation and returns undefined', async ({ page }) => {
-  // ArkWeb: 同步导航时 execution context 立即销毁，evaluate 无法返回值
+it('should not throw an error when evaluation does a synchronous navigation and returns undefined', async ({ page }) => {
   // It is important to be on about:blank for sync reload.
   const result = await page.evaluate(() => {
     window.location.reload();
@@ -566,8 +562,7 @@ it.fixme('should not throw an error when evaluation does a synchronous navigatio
   expect(result).toBe(undefined);
 });
 
-it.fixme('should transfer 100Mb of data from page to node.js', async ({ mode, page }) => {
-  // ArkWeb: 100Mb 数据传输触发 execution context 销毁
+it('should transfer 100Mb of data from page to node.js', async ({ mode, page }) => {
   it.skip(mode !== 'default');
 
   // This is too slow with wire.
@@ -575,8 +570,7 @@ it.fixme('should transfer 100Mb of data from page to node.js', async ({ mode, pa
   expect(a.length).toBe(100 * 1024 * 1024);
 });
 
-it.fixme('should throw error with detailed information on exception inside promise ', async ({ page }) => {
-  // ArkWeb: Promise constructor 内 throw 触发 execution context 销毁
+it('should throw error with detailed information on exception inside promise ', async ({ page }) => {
   let error = null;
   await page.evaluate(() => new Promise(() => {
     throw new Error('Error in promise');
@@ -584,15 +578,13 @@ it.fixme('should throw error with detailed information on exception inside promi
   expect(error.message).toContain('Error in promise');
 });
 
-it.fixme('should work even when JSON is set to null', async ({ page }) => {
-  // ArkWeb: JSON 设为 null 后 evaluate 序列化失败（execution context destroyed）
+it('should work even when JSON is set to null', async ({ page }) => {
   await page.evaluate(() => { window.JSON.stringify = null; window.JSON = null; });
   const result = await page.evaluate(() => ({ abc: 123 }));
   expect(result).toEqual({ abc: 123 });
 });
 
 it('should await promise from popup', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: window.open 不返回真实 Window 对象');
   // Something is wrong about the way Firefox waits for the chained promise
   await page.goto(server.EMPTY_PAGE);
   const result = await page.evaluate(() => {

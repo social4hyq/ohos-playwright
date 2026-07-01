@@ -378,13 +378,23 @@ Expected has value: {}
   test('fail with positive predicate', async ({ page }) => {
     await page.goto('data:text/html,<div>A</div>');
     const error = await expect(page).toHaveURL(_url => false).catch(e => e);
-    expect(stripAnsi(error.message)).toContain('Timeout:');
+    expect(stripAnsi(error.message)).toContain(`expect(page).toHaveURL(expected) failed
+
+Expected: predicate to succeed
+Received: "data:text/html,<div>A</div>"
+Timeout:  10000ms
+`);
   });
 
   test('fail with negative predicate', async ({ page }) => {
     await page.goto('data:text/html,<div>A</div>');
     const error = await expect(page).not.toHaveURL(_url => true).catch(e => e);
-    expect(stripAnsi(error.message)).toContain('Timeout:');
+    expect(stripAnsi(error.message)).toContain(`expect(page).not.toHaveURL(expected) failed
+
+Expected: predicate to fail
+Received: "data:text/html,<div>A</div>"
+Timeout:  10000ms
+`);
   });
 
   test('resolve predicate on initial call', async ({ page }) => {

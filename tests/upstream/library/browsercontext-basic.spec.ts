@@ -34,7 +34,6 @@ it('should create new context @smoke', async function({ browser }) {
 });
 
 it('should be able to click across browser contexts', async function({ browser }) {
-  it.fixme(true, 'ArkWeb: 创建第二个独立 context 会断开 CDP WebSocket（多 context 并行不支持）');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/29096' });
   expect(browser.contexts().length).toBe(0);
 
@@ -71,7 +70,6 @@ it('should be able to click across browser contexts', async function({ browser }
 });
 
 it('should be able to hover across browser contexts in parallel', async function({ browser, browserName }) {
-  it.fixme(true, 'ArkWeb: 创建多个独立 context 会断开 CDP WebSocket（多 context 并行不支持）');
   it.fixme(browserName === 'firefox');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/40562' });
 
@@ -106,7 +104,6 @@ it('should be able to hover across browser contexts in parallel', async function
 });
 
 it('window.open should use parent tab context', async function({ browser, server }) {
-  it.fixme(true, 'ArkWeb: 非默认 context 内 window.open 会断开 CDP WebSocket');
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto(server.EMPTY_PAGE);
@@ -180,7 +177,6 @@ it('should make a copy of default viewport', async ({ browser }) => {
 });
 
 it('should respect deviceScaleFactor', async ({ browser }) => {
-  it.fixme(true, 'ArkWeb: devicePixelRatio 返回 3.0000000696433204（subpixel 精度漂移）');
   const context = await browser.newContext({ deviceScaleFactor: 3 });
   const page = await context.newPage();
   expect(await page.evaluate('window.devicePixelRatio')).toBe(3);
@@ -226,7 +222,6 @@ it('should pass self to close event', async ({ browser }) => {
 });
 
 it('should not report frameless pages on error', async ({ browser, server }) => {
-  it.fixme(true, 'ArkWeb: <a target="_blank"> 点击触发新 tab 创建会断开 CDP WebSocket');
   const context = await browser.newContext();
   const page = await context.newPage();
   server.setRoute('/empty.html', (req, res) => {
@@ -265,7 +260,6 @@ it('should close all belonging pages once closing context', async function({ bro
 });
 
 it('should disable javascript', async ({ browser, browserName }) => {
-  it.fixme(true, 'ArkWeb: newContext({ javaScriptEnabled: false }) 选项被忽略，页面 JS 仍执行');
   {
     const context = await browser.newContext({ javaScriptEnabled: false });
     const page = await context.newPage();
@@ -389,7 +383,6 @@ it('should emulate offline event', { annotation: { type: 'issue', description: '
 });
 
 it('should emulate media in popup', async ({ browser, server }) => {
-  it.fixme(true, 'ArkWeb: 非默认 context 内 window.open 会断开 CDP WebSocket');
   {
     const context = await browser.newContext({ colorScheme: 'dark' });
     const page = await context.newPage();

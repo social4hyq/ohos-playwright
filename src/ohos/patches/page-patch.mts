@@ -393,6 +393,14 @@ export async function installPageWrappers(
 ): Promise<PageCleanup> {
   const ctxEmit = (context as unknown as { emit: (e: string, v: unknown) => void }).emit.bind(context)
 
+  // When connecting to a remote Chrome/Edge via OHOS_PW_CDP_URL, skip ALL
+  // ArkWeb workarounds. Standard Chromium handles popups, goBack/goForward,
+  // page.close, and webdriver natively — our patches would only interfere.
+  if (process.env.OHOS_PW_CDP_URL) {
+    const noopCleanup: PageCleanup = async () => {}
+    return noopCleanup
+  }
+
   // connectOverCDP reuses an existing tab — Playwright has no record of its
   // viewport size and viewportSize() returns null. Pre-fetch via CDP.
   const session = await context.newCDPSession(page)

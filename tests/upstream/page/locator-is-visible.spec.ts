@@ -18,7 +18,6 @@
 import { test as it, expect } from '../fixtures/upstream-fixture.js';
 
 it('isVisible and isHidden should work', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: locator visibility 行为差异');
   await page.setContent(`<div>Hi</div><span></span>`);
 
   const div = page.locator('div');
@@ -38,19 +37,16 @@ it('isVisible and isHidden should work', async ({ page }) => {
 });
 
 it('isVisible should be true for opacity:0', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: locator visibility 行为差异');
   await page.setContent(`<div style="opacity:0">Hi</div>`);
   await expect(page.locator('div')).toBeVisible();
 });
 
 it('isVisible should be true for element outside view', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: locator visibility 行为差异');
   await page.setContent(`<div style="position: absolute; left: -1000px">Hi</div>`);
   await expect(page.locator('div')).toBeVisible();
 });
 
 it('isVisible and isHidden should work with details', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: locator visibility 行为差异');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/10674' });
   await page.setContent(`<details>
     <summary>click to open</summary>
@@ -65,7 +61,6 @@ it('isVisible and isHidden should work with details', async ({ page }) => {
 });
 
 it('isVisible inside a button', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: locator visibility 行为差异');
   await page.setContent(`<button><span></span>a button</button>`);
   const span = page.locator('span');
   expect(await span.isVisible()).toBe(false);
@@ -79,7 +74,6 @@ it('isVisible inside a button', async ({ page }) => {
 });
 
 it('isVisible inside a role=button', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: locator visibility 行为差异');
   await page.setContent(`<div role=button><span></span>a button</div>`);
   const span = page.locator('span');
   expect(await span.isVisible()).toBe(false);
@@ -93,7 +87,6 @@ it('isVisible inside a role=button', async ({ page }) => {
 });
 
 it('isVisible during navigation should not throw', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: locator visibility 行为差异');
   for (let i = 0; i < 20; i++) {
     await page.setContent(`
       <script>
@@ -107,7 +100,6 @@ it('isVisible during navigation should not throw', async ({ page, server }) => {
 });
 
 it('isVisible with invalid selector should throw', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: locator visibility 行为差异');
   const error = await page.locator('hey=what').isVisible().catch(e => e);
   expect(error.message).toContain('Unknown engine "hey" while parsing selector hey=what');
 });

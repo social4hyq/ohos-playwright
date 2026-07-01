@@ -31,7 +31,6 @@ it.describe('device', () => {
   });
 
   it('should support clicking', async ({ playwright, browser, server }) => {
-    it.fixme(true, 'ArkWeb: 移动端 emulation 下 mobile viewport 与点击坐标系不匹配');
     const iPhone = playwright.devices['iPhone 6'];
     const context = await browser.newContext({ ...iPhone });
     const page = await context.newPage();
@@ -44,7 +43,6 @@ it.describe('device', () => {
   });
 
   it('should scroll to click', async ({ browser, server }) => {
-    it.fixme(true, 'ArkWeb: isMobile:true 时 viewport 被忽略，元素无法点击');
     const context = await browser.newContext({
       viewport: {
         width: 400,
@@ -62,7 +60,6 @@ it.describe('device', () => {
   });
 
   it('should scroll twice when emulated', async ({ contextFactory, playwright }) => {
-    it.fixme(true, 'ArkWeb: iPhone emulation 下 window.scroll 不生效（scrollY=0）');
     const device = playwright.devices['iPhone 6'];
     const context = await contextFactory(device);
     const page = await context.newPage();
@@ -81,7 +78,6 @@ it.describe('device', () => {
   });
 
   it('should reset scroll top after a navigation', async ({ server, contextFactory, playwright, browserName }) => {
-    it.fixme(true, 'ArkWeb: 移动 emulation 中跨页面 newContext 触发 target 关闭');
     it.skip(browserName === 'webkit');
 
     const device = playwright.devices['iPhone 6'];
@@ -96,7 +92,6 @@ it.describe('device', () => {
   });
 
   it('should scroll to a precise position with mobile scale', async ({ server, contextFactory, playwright, browserName }) => {
-    it.fixme(true, 'ArkWeb: iPhone emulation 下 window.scroll 不生效（scrollY=0）');
     it.skip(browserName === 'webkit');
 
     const device = playwright.devices['iPhone 6'];

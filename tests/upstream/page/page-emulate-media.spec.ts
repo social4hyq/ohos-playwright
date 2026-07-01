@@ -35,7 +35,6 @@ const expect = baseExpect.extend({
 });
 
 it('should emulate type @smoke', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: emulateMedia 行为差异');
   expect(await page.evaluate(() => matchMedia('screen').matches)).toBe(true);
   expect(await page.evaluate(() => matchMedia('print').matches)).toBe(false);
   await page.emulateMedia({ media: 'print' });
@@ -50,7 +49,6 @@ it('should emulate type @smoke', async ({ page }) => {
 });
 
 it('should throw in case of bad media argument', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: emulateMedia 行为差异');
   let error = null;
   // @ts-expect-error 'bad' is not a valid media type
   await page.emulateMedia({ media: 'bad' }).catch(e => error = e);
@@ -58,7 +56,6 @@ it('should throw in case of bad media argument', async ({ page }) => {
 });
 
 it('should emulate colorScheme should work @smoke', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: emulateMedia 行为差异');
   await page.emulateMedia({ colorScheme: 'light' });
   expect(await page.evaluate(() => matchMedia('(prefers-color-scheme: light)').matches)).toBe(true);
   expect(await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)).toBe(false);
@@ -68,7 +65,6 @@ it('should emulate colorScheme should work @smoke', async ({ page }) => {
 });
 
 it('should default to light', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: emulateMedia 行为差异');
   expect(await page.evaluate(() => matchMedia('(prefers-color-scheme: light)').matches)).toBe(true);
   expect(await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)).toBe(false);
 
@@ -82,7 +78,6 @@ it('should default to light', async ({ page }) => {
 });
 
 it('should throw in case of bad colorScheme argument', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: emulateMedia 行为差异');
   let error = null;
   // @ts-expect-error 'bad' is not a valid media type
   await page.emulateMedia({ colorScheme: 'bad' }).catch(e => error = e);
@@ -90,7 +85,6 @@ it('should throw in case of bad colorScheme argument', async ({ page }) => {
 });
 
 it('should work during navigation', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: emulateMedia 行为差异');
   await page.emulateMedia({ colorScheme: 'light' });
   const navigated = page.goto(server.EMPTY_PAGE);
   for (let i = 0; i < 9; i++) {
@@ -104,7 +98,6 @@ it('should work during navigation', async ({ page, server }) => {
 });
 
 it('should change the actual colors in css', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: emulateMedia 行为差异');
   await page.setContent(`
     <style>
       @media (prefers-color-scheme: dark) {
@@ -138,7 +131,6 @@ it('should change the actual colors in css', async ({ page }) => {
 });
 
 it('should emulate reduced motion', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: emulateMedia 行为差异');
   expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: no-preference)').matches)).toBe(true);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
@@ -150,7 +142,6 @@ it('should emulate reduced motion', async ({ page }) => {
 });
 
 it('should keep reduced motion and color emulation after reload', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: emulateMedia 行为差异');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/31328' });
 
   // Pre-conditions
@@ -179,7 +170,6 @@ it('should keep reduced motion and color emulation after reload', async ({ page,
 });
 
 it('should emulate forcedColors ', async ({ page, browserName }) => {
-  it.fixme(true, 'ArkWeb: emulateMedia 行为差异');
   expect(await page.evaluate(() => matchMedia('(forced-colors: none)').matches)).toBe(true);
   await page.emulateMedia({ forcedColors: 'none' });
   expect(await page.evaluate(() => matchMedia('(forced-colors: none)').matches)).toBe(true);
@@ -192,7 +182,6 @@ it('should emulate forcedColors ', async ({ page, browserName }) => {
 });
 
 it('should emulate contrast ', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: emulateMedia 行为差异');
   await expect(page).toMatchMedia('(prefers-contrast: no-preference)');
   await page.emulateMedia({ contrast: 'no-preference' });
   await expect(page).toMatchMedia('(prefers-contrast: no-preference)');

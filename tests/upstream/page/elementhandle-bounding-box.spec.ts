@@ -28,7 +28,6 @@ it('should work', async ({ page, server, browserName, headless, isLinux }) => {
 });
 
 it('should handle nested frames', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: boundingBox 返回 subpixel 浮点值，测试期望整数');
   await page.setViewportSize({ width: 616, height: 500 });
   await page.goto(server.PREFIX + '/frames/nested-frames.html');
   const nestedFrame = page.frameLocator('[name="2frames"]').frameLocator('[name=dos]');
@@ -38,7 +37,6 @@ it('should handle nested frames', async ({ page, server }) => {
 });
 
 it('should get frame box', async ({ page, browserName }) => {
-  it.fixme(true, 'ArkWeb: boundingBox 返回 subpixel 浮点值，测试期望整数');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/10977' });
   await page.setViewportSize({ width: 250, height: 250 });
   await page.setContent(`<style>
@@ -62,7 +60,6 @@ it('should get frame box', async ({ page, browserName }) => {
 
 
 it('should handle scroll offset and click', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: boundingBox 返回 subpixel 浮点值，测试期望整数');
   await page.setContent(`
     <style>* { margin: 0; padding: 0; }</style>
     <div style="width:8000px; height:8000px;">
@@ -88,7 +85,6 @@ it('should return null for invisible elements', async ({ page, server }) => {
 });
 
 it('should force a layout', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: boundingBox 返回 subpixel 浮点值，测试期望整数');
   await page.setViewportSize({ width: 500, height: 500 });
   await page.setContent('<div style="width: 100px; height: 100px">hello</div>');
   const elementHandle = await page.$('div');
@@ -98,7 +94,6 @@ it('should force a layout', async ({ page, server }) => {
 });
 
 it('should work with SVG nodes', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: boundingBox 返回 subpixel 浮点值，与 getBoundingClientRect 略有差异');
   await page.setContent(`
       <svg xmlns="http://www.w3.org/2000/svg" width="500" height="500">
         <rect id="theRect" x="30" y="50" width="200" height="300"></rect>

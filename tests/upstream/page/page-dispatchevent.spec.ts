@@ -17,14 +17,12 @@
 import { test as it, expect } from '../fixtures/upstream-fixture.js';
 
 it('should dispatch click event @smoke', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: dispatchEvent 行为差异');
   await page.goto(server.PREFIX + '/input/button.html');
   await page.dispatchEvent('button', 'click');
   expect(await page.evaluate(() => window['result'])).toBe('Clicked');
 });
 
 it('should dispatch click event properties', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: dispatchEvent 行为差异');
   await page.goto(server.PREFIX + '/input/button.html');
   await page.dispatchEvent('button', 'click');
   expect(await page.evaluate('bubbles')).toBeTruthy();
@@ -33,7 +31,6 @@ it('should dispatch click event properties', async ({ page, server }) => {
 });
 
 it('should dispatch click svg', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: dispatchEvent 行为差异');
   await page.setContent(`
     <svg height="100" width="100">
       <circle onclick="javascript:window.__CLICKED=42" cx="50" cy="50" r="40" stroke="black" stroke-width="3" fill="red" />
@@ -44,7 +41,6 @@ it('should dispatch click svg', async ({ page }) => {
 });
 
 it('should dispatch click on a span with an inline element inside', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: dispatchEvent 行为差异');
   await page.setContent(`
     <style>
     span::before {
@@ -58,7 +54,6 @@ it('should dispatch click on a span with an inline element inside', async ({ pag
 });
 
 it('should dispatch click after navigation ', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: dispatchEvent 行为差异');
   await page.goto(server.PREFIX + '/input/button.html');
   await page.dispatchEvent('button', 'click');
   await page.goto(server.PREFIX + '/input/button.html');
@@ -67,7 +62,6 @@ it('should dispatch click after navigation ', async ({ page, server }) => {
 });
 
 it('should dispatch click after a cross origin navigation ', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: dispatchEvent 行为差异');
   await page.goto(server.PREFIX + '/input/button.html');
   await page.dispatchEvent('button', 'click');
   await page.goto(server.CROSS_PROCESS_PREFIX + '/input/button.html');
@@ -76,7 +70,6 @@ it('should dispatch click after a cross origin navigation ', async ({ page, serv
 });
 
 it('should not fail when element is blocked on hover', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: dispatchEvent 行为差异');
   await page.setContent(`<style>
     container { display: block; position: relative; width: 200px; height: 50px; }
     div, button { position: absolute; left: 0; top: 0; bottom: 0; right: 0; }
@@ -92,7 +85,6 @@ it('should not fail when element is blocked on hover', async ({ page }) => {
 });
 
 it('should dispatch click when node is added in shadow dom', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: dispatchEvent 行为差异');
   await page.goto(server.EMPTY_PAGE);
   const watchdog = page.dispatchEvent('span', 'click');
   await page.evaluate(() => {
@@ -112,7 +104,6 @@ it('should dispatch click when node is added in shadow dom', async ({ page, serv
 });
 
 it('should be atomic', async ({ playwright, page }) => {
-  it.fixme(true, 'ArkWeb: dispatchEvent 行为差异');
   const createDummySelector = () => ({
     query(root, selector) {
       const result = root.querySelector(selector);
@@ -134,7 +125,6 @@ it('should be atomic', async ({ playwright, page }) => {
 });
 
 it('should dispatch drag drop events', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: dispatchEvent 行为差异');
   await page.goto(server.PREFIX + '/drag-n-drop.html');
   const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
   await page.dispatchEvent('#source', 'dragstart', { dataTransfer });
@@ -147,7 +137,6 @@ it('should dispatch drag drop events', async ({ page, server }) => {
 });
 
 it('should dispatch drag drop events via ElementHandles', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: dispatchEvent 行为差异');
   await page.goto(server.PREFIX + '/drag-n-drop.html');
   const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
   const source = await page.$('#source');
@@ -160,7 +149,6 @@ it('should dispatch drag drop events via ElementHandles', async ({ page, server 
 });
 
 it('should dispatch click event via ElementHandles', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: dispatchEvent 行为差异');
   await page.goto(server.PREFIX + '/input/button.html');
   const button = await page.$('button');
   await button.dispatchEvent('click');
@@ -168,7 +156,6 @@ it('should dispatch click event via ElementHandles', async ({ page, server }) =>
 });
 
 it('should dispatch wheel event', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: dispatchEvent 行为差异');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/15562' });
   await page.goto(server.PREFIX + '/input/scrollable.html');
   const eventsHandle = await page.locator('body').evaluateHandle(e => {
@@ -230,7 +217,6 @@ it('should dispatch device motion event', async ({ page, server, isAndroid }) =>
 });
 
 it('should throw if argument is from different frame', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: dispatchEvent 行为差异');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/28690' });
   await page.goto(server.PREFIX + '/frames/one-frame.html');
   {

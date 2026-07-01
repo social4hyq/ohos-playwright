@@ -20,7 +20,6 @@ import { playwrightTest as test, expect } from '../fixtures/upstream-fixture.js'
 const { parsePattern } = utils;
 
 test('socks proxy patter matcher', async ({}) => {
-  test.fixme(true, 'ArkWeb: utils.parsePattern not available in coreBundle-stub');
   const m1 = parsePattern('*');
   expect.soft(m1('example.com', 80)).toBe(true);
   expect.soft(m1('some.long.example.com', 80)).toBe(true);

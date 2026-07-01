@@ -18,7 +18,6 @@
 import { test as it, expect } from '../fixtures/upstream-fixture.js';
 
 it('should work for open shadow roots', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.goto(server.PREFIX + '/deep-shadow.html');
   expect(await page.$eval(`id=target`, e => e.textContent)).toBe('Hello from root2');
   expect(await page.$eval(`data-testid=foo`, e => e.textContent)).toBe('Hello from root1');
@@ -29,7 +28,6 @@ it('should work for open shadow roots', async ({ page, server }) => {
 });
 
 it('should click on links in shadow dom', async ({ page, server, browserName, browserMajorVersion }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.goto(server.PREFIX + '/shadow-dom-link.html');
   expect(await page.evaluate(() => (window as any).clickCount)).toBe(0);
   await page.click('#inner-link');
@@ -37,7 +35,6 @@ it('should click on links in shadow dom', async ({ page, server, browserName, br
 });
 
 it('should work with :visible', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.setContent(`
     <section>
       <div id=target1></div>
@@ -58,7 +55,6 @@ it('should work with :visible', async ({ page }) => {
 });
 
 it('should work with >> visible=', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.setContent(`
     <section>
       <div id=target1></div>
@@ -79,7 +75,6 @@ it('should work with >> visible=', async ({ page }) => {
 });
 
 it('should work with >> visible=false', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.setContent(`
     <section>
       <div id=target1></div>
@@ -92,7 +87,6 @@ it('should work with >> visible=false', async ({ page }) => {
 });
 
 it('should work with :nth-match', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.setContent(`
     <section>
       <div id=target1></div>
@@ -128,7 +122,6 @@ it('should work with :nth-match', async ({ page }) => {
 });
 
 it('should work with nth=', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.setContent(`
     <section>
       <div id=target1></div>
@@ -165,7 +158,6 @@ it('should work with nth=', async ({ page }) => {
 });
 
 it('should work with strict mode and chaining', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.setContent(`
     <div>
       <div>
@@ -292,13 +284,11 @@ it('should work with layout selectors', async ({ page, trace }) => {
 });
 
 it('should escape the scope with >>', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.setContent(`<div><label>Test</label><input id='myinput'></div>`);
   expect(await page.$eval(`label >> xpath=.. >> input`, e => e.id)).toBe('myinput');
 });
 
 it('xpath should be relative', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.setContent(`
     <span class="find-me" id=target1>1</span>
     <div>
@@ -320,7 +310,6 @@ it('xpath should be relative', async ({ page }) => {
 });
 
 it('should work with pipe in xpath', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.setContent(`
     <span class="find-me" id=t1>1</span>
     <div>
@@ -342,14 +331,12 @@ it('should work with pipe in xpath', async ({ page, server }) => {
 });
 
 it('should print original xpath in error', async ({ page, browserName }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   const error = await page.locator(`//*[contains(@Class, 'foo']`).isVisible().catch(e => e);
   expect(error.message).toContain('//*[contains(@Class, \\\'foo\\\']');
   expect(error.message).not.toContain('.//*[contains(@Class, \'foo\']');
 });
 
 it('data-testid on the handle should be relative', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.setContent(`
     <span data-testid="find-me" id=target1>1</span>
     <div>
@@ -364,7 +351,6 @@ it('data-testid on the handle should be relative', async ({ page }) => {
 });
 
 it('should properly determine visibility of display:contents elements', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   it.info().annotations.push({ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/11202' });
 
   await page.setContent(`
@@ -399,7 +385,6 @@ it('should properly determine visibility of display:contents elements', async ({
 });
 
 it('should work with internal:has=', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.goto(server.PREFIX + '/deep-shadow.html');
   expect(await page.$$eval(`div >> internal:has="#target"`, els => els.length)).toBe(2);
   expect(await page.$$eval(`div >> internal:has="[data-testid=foo]"`, els => els.length)).toBe(3);
@@ -434,7 +419,6 @@ it('should work with internal:has=', async ({ page, server }) => {
 });
 
 it('should work with internal:has-not=', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.setContent(`<section><span></span><div></div></section><section><br></section>`);
   expect(await page.$$eval(`section >> internal:has-not="span"`, els => els.length)).toBe(1);
   expect(await page.$$eval(`section >> internal:has-not="span, div, br"`, els => els.length)).toBe(0);
@@ -444,7 +428,6 @@ it('should work with internal:has-not=', async ({ page }) => {
 });
 
 it('should work with internal:and=', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.setContent(`
     <div class=foo>hello</div><div class=bar>world</div>
     <span class=foo>hello2</span><span class=bar>world2</span>
@@ -458,7 +441,6 @@ it('should work with internal:and=', async ({ page, server }) => {
 });
 
 it('should work with internal:or=', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.setContent(`
     <div>hello</div>
     <span>world</span>
@@ -473,7 +455,6 @@ it('should work with internal:or=', async ({ page, server }) => {
 });
 
 it('should work with internal:chain=', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.setContent(`
     <div>one <span>two</span> <button>three</button> </div>
     <span>four</span>
@@ -484,7 +465,6 @@ it('should work with internal:chain=', async ({ page, server }) => {
 });
 
 it('chaining should work with large DOM @smoke', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: selectors 行为差异');
   await page.evaluate(() => {
     let last = document.body;
     for (let i = 0; i < 100; i++) {

@@ -43,7 +43,6 @@ function expectError(selector: string) {
 }
 
 it('should parse', async () => {
-  it.fixme(true, 'ArkWeb: component parser 内部 API 不支持');
   expect(serialize(parse('[foo="]"]'))).toBe('[foo = "]"]');
   expect(serialize(parse('[foo="10"s]'))).toBe('[foo = "10"]');
   expect(serialize(parse('[foo="10" s]'))).toBe('[foo = "10"]');
@@ -53,14 +52,12 @@ it('should parse', async () => {
 });
 
 it('should parse short attributes', async () => {
-  it.fixme(true, 'ArkWeb: component parser 内部 API 不支持');
   expect(serialize(parse(`BookItem [  name ]`))).toBe('BookItem[name]');
   expect(serialize(parse(`BookItem ['name' ] [ foo."bar".baz ]`))).toBe('BookItem[name][foo.bar.baz]');
   expect(serialize(parse(`BookItem ['na  me' ]`))).toBe('BookItem["na  me"]');
 });
 
 it('should parse all operators', async () => {
-  it.fixme(true, 'ArkWeb: component parser 内部 API 不支持');
   expect(serialize(parse(`BookItem[name = 10]`))).toBe('BookItem[name = 10]');
   expect(serialize(parse(`BookItem[name = 'foo']`))).toBe(`BookItem[name = "foo"]`);
   expect(serialize(parse(`BookItem[name *= 'foo']`))).toBe(`BookItem[name *= "foo"]`);
@@ -71,7 +68,6 @@ it('should parse all operators', async () => {
 });
 
 it('should tolerate spacing', async () => {
-  it.fixme(true, 'ArkWeb: component parser 内部 API 不支持');
   expect(serialize(parse(` BookItem[ name = "Foo "  ]`))).toBe('BookItem[name = "Foo "]');
   expect(serialize(parse(`  BookItem  [  name = "Foo"  ]   `))).toBe('BookItem[name = "Foo"]');
   expect(serialize(parse(`  [    name = "Foo"]`))).toBe('[name = "Foo"]');
@@ -80,7 +76,6 @@ it('should tolerate spacing', async () => {
 });
 
 it('should escape', async () => {
-  it.fixme(true, 'ArkWeb: component parser 内部 API 不支持');
   expect(serialize(parse(`BookItem['jake\\'s' = 10]`))).toBe(`BookItem["jake's" = 10]`);
   expect(serialize(parse(`BookItem['jake"s' = 10]`))).toBe(`BookItem["jake\\"s" = 10]`);
   expect(serialize(parse(`BookItem["jake\\"s" = 10]`))).toBe(`BookItem["jake\\"s" = 10]`);
@@ -90,7 +85,6 @@ it('should escape', async () => {
 });
 
 it('should parse int values', async () => {
-  it.fixme(true, 'ArkWeb: component parser 内部 API 不支持');
   expect(serialize(parse(`ColorButton[value = 10]`))).toBe('ColorButton[value = 10]');
   expect(serialize(parse(`ColorButton[value = +10]`))).toBe('ColorButton[value = 10]');
   expect(serialize(parse(`ColorButton[value = -10]`))).toBe('ColorButton[value = -10]');
@@ -98,14 +92,12 @@ it('should parse int values', async () => {
 });
 
 it('should parse float values', async () => {
-  it.fixme(true, 'ArkWeb: component parser 内部 API 不支持');
   expect(serialize(parse(`ColorButton[value = -12.3]`))).toBe('ColorButton[value = -12.3]');
   expect(serialize(parse(`ColorButton  ['nested'.value = 4.1]`))).toBe('ColorButton[nested.value = 4.1]');
   expect(serialize(parse(`ColorButton  [    'nested' .value =4.1]`))).toBe('ColorButton[nested.value = 4.1]');
 });
 
 it('should parse bool', async () => {
-  it.fixme(true, 'ArkWeb: component parser 内部 API 不支持');
   expect(serialize(parse(`ColorButton[enabled= false] `))).toBe('ColorButton[enabled = false]');
   expect(serialize(parse(`ColorButton[enabled  =true] `))).toBe('ColorButton[enabled = true]');
   expect(serialize(parse(`ColorButton[enabled  =true][ color = "red"]`))).toBe('ColorButton[enabled = true][color = "red"]');
@@ -113,7 +105,6 @@ it('should parse bool', async () => {
 });
 
 it('should parse regex', async () => {
-  it.fixme(true, 'ArkWeb: component parser 内部 API 不支持');
   expect(serialize(parse(`ColorButton[color =  /red$/]`))).toBe('ColorButton[color = /red$/]');
   expect(serialize(parse(`ColorButton[color=/red/ig]`))).toBe('ColorButton[color = /red/gi]');
   expect(serialize(parse(`ColorButton[color=  / \\/ [/]/  ]`))).toBe('ColorButton[color = / \\/ [/]/]');
@@ -121,21 +112,18 @@ it('should parse regex', async () => {
 });
 
 it('should parse identifiers', async () => {
-  it.fixme(true, 'ArkWeb: component parser 内部 API 不支持');
   expect(serialize(parse('[привет=true]'))).toBe('["привет" = true]');
   expect(serialize(parse('[__-__=true]'))).toBe('["__-__" = true]');
   expect(serialize(parse('[😀=true]'))).toBe('["😀" = true]');
 });
 
 it('should parse unquoted string', async () => {
-  it.fixme(true, 'ArkWeb: component parser 内部 API 不支持');
   expect(serialize(parseAttributeSelector('[hey=foo]', true))).toBe('[hey = "foo"]');
   expect(serialize(parseAttributeSelector('[yay=and😀more]', true))).toBe('[yay = "and😀more"]');
   expect(serialize(parseAttributeSelector('[yay= trims  ]', true))).toBe('[yay = "trims"]');
 });
 
 it('should throw on malformed selector', async () => {
-  it.fixme(true, 'ArkWeb: component parser 内部 API 不支持');
   expectError('foo[');
   expectError('foo[');
   expectError('foo["asd');

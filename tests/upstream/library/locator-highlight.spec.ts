@@ -19,7 +19,6 @@ import { expect, browserTest as test } from '../fixtures/upstream-fixture.js';
 test.skip(({ mode }) => mode !== 'default', 'Highlight overlay uses an open shadow root only in default mode');
 
 test('highlight should accept a CSS string style', async ({ browser, server, browserName, isFrozenWebkit }) => {
-  test.fixme(true, 'ArkWeb: locator highlight 内部 API 不支持');
   test.skip(isFrozenWebkit);
 
   const context = await browser.newContext();
@@ -44,7 +43,6 @@ test('highlight should accept a CSS string style', async ({ browser, server, bro
 });
 
 test('highlight should accept an object style (JS only)', async ({ browser, server, browserName, isFrozenWebkit }) => {
-  test.fixme(true, 'ArkWeb: locator highlight 内部 API 不支持');
   test.skip(isFrozenWebkit);
 
   const context = await browser.newContext();
@@ -74,7 +72,6 @@ test('highlight should accept an object style (JS only)', async ({ browser, serv
 });
 
 test('hideHighlight removes a styled highlight', async ({ browser, server }) => {
-  test.fixme(true, 'ArkWeb: locator highlight 内部 API 不支持');
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto(server.PREFIX + '/input/button.html');
@@ -90,7 +87,6 @@ test('hideHighlight removes a styled highlight', async ({ browser, server }) => 
 });
 
 test('Page.hideHighlight clears all locator highlights', async ({ browser, server }) => {
-  test.fixme(true, 'ArkWeb: locator highlight 内部 API 不支持');
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.setContent(`<button>One</button><button>Two</button>`);

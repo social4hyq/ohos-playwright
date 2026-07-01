@@ -23,7 +23,6 @@ const { ManualPromise } = iso;
 // This test is mostly for type checking, the actual tests are in the library/events.
 
 it('should not throw with ignoreErrors', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: listener 泄漏检测不支持');
   const reachedHandler = new ManualPromise();
   const releaseHandler = new ManualPromise();
   page.on('console', async () => {
@@ -39,7 +38,6 @@ it('should not throw with ignoreErrors', async ({ page }) => {
 });
 
 it('should wait', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: listener 泄漏检测不支持');
   const reachedHandler = new ManualPromise();
   const releaseHandler = new ManualPromise();
   let value = 0;
@@ -56,7 +54,6 @@ it('should wait', async ({ page }) => {
 });
 
 it('wait should throw', async ({ page }) => {
-  it.fixme(true, 'ArkWeb: listener 泄漏检测不支持');
   const reachedHandler = new ManualPromise();
   const releaseHandler = new ManualPromise();
   page.on('console', async () => {

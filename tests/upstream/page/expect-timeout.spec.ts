@@ -95,7 +95,6 @@ test('should not throw when navigating during first locator handler check', asyn
 });
 
 test('should timeout during first locator handler check', async ({ page, server }) => {
-  test.fixme(true, 'ArkWeb: locator handler 错误消息格式与上游不一致');
   await page.addLocatorHandler(page.locator('div'), async locator => {});
   await page.setContent(`<div>hello</div><span>bye</span>`);
   const error = await expect(page.locator('span')).toHaveText('bye', { timeout: 3000 }).catch(e => e);

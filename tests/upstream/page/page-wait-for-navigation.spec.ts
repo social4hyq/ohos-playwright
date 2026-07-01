@@ -20,7 +20,6 @@ import type { Frame } from 'playwright-core';
 import { expectedSSLError } from '../fixtures/upstream-utils.js';
 
 it('should work', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: waitForNavigation 行为差异');
   await page.goto(server.EMPTY_PAGE);
   const [response] = await Promise.all([
     page.waitForNavigation(),
@@ -31,7 +30,6 @@ it('should work', async ({ page, server }) => {
 });
 
 it('should respect timeout', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: waitForNavigation 行为差异');
   const promise = page.waitForNavigation({ url: '**/frame.html', timeout: 5000 });
   await page.goto(server.EMPTY_PAGE);
   const error = await promise.catch(e => e);
@@ -41,7 +39,6 @@ it('should respect timeout', async ({ page, server }) => {
 });
 
 it('should work with both domcontentloaded and load', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: waitForNavigation 行为差异');
   let response = null;
   server.setRoute('/one-style.css', (req, res) => response = res);
   const navigationPromise = page.goto(server.PREFIX + '/one-style.html');
@@ -64,7 +61,6 @@ it('should work with both domcontentloaded and load', async ({ page, server }) =
 });
 
 it('should work with commit', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: waitForNavigation 行为差异');
   server.setRoute('/script.js', (req, res) => {});
   server.setRoute('/empty.html', (req, res) => {
     res.setHeader('content-type', 'text/html');
@@ -76,7 +72,6 @@ it('should work with commit', async ({ page, server }) => {
 });
 
 it('should work with clicking on anchor links', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: waitForNavigation 行为差异');
   await page.goto(server.EMPTY_PAGE);
   await page.setContent(`<a href='#foobar'>foobar</a>`);
   const [response] = await Promise.all([
@@ -88,7 +83,6 @@ it('should work with clicking on anchor links', async ({ page, server }) => {
 });
 
 it('should work with clicking on links which do not commit navigation', async ({ page, server, httpsServer, browserName, platform, channel }) => {
-  it.fixme(true, 'ArkWeb: waitForNavigation 行为差异');
   await page.goto(server.EMPTY_PAGE);
   await page.setContent(`<a href='${httpsServer.EMPTY_PAGE}'>foobar</a>`);
   const [error] = await Promise.all([
@@ -99,7 +93,6 @@ it('should work with clicking on links which do not commit navigation', async ({
 });
 
 it('should work with history.pushState()', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: waitForNavigation 行为差异');
   await page.goto(server.EMPTY_PAGE);
   await page.setContent(`
     <a onclick='javascript:pushState()'>SPA</a>
@@ -116,7 +109,6 @@ it('should work with history.pushState()', async ({ page, server }) => {
 });
 
 it('should work with history.replaceState()', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: waitForNavigation 行为差异');
   await page.goto(server.EMPTY_PAGE);
   await page.setContent(`
     <a onclick='javascript:replaceState()'>SPA</a>
@@ -133,7 +125,6 @@ it('should work with history.replaceState()', async ({ page, server }) => {
 });
 
 it('should work with DOM history.back()/history.forward()', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: waitForNavigation 行为差异');
   await page.goto(server.EMPTY_PAGE);
   await page.setContent(`
     <a id=back onclick='javascript:goBack()'>back</a>
@@ -176,7 +167,6 @@ it('should work when subframe issues window.stop()', async ({ browserName, page,
 });
 
 it('should work with url match', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: waitForNavigation 行为差异');
   let response1 = null;
   const response1Promise = page.waitForNavigation({ url: /one-style\.html/ }).then(response => response1 = response);
   let response2 = null;
@@ -212,7 +202,6 @@ it('should work with url match', async ({ page, server }) => {
 });
 
 it('should work with url match for same document navigations', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: waitForNavigation 行为差异');
   await page.goto(server.EMPTY_PAGE);
   let resolved = false;
   const waitPromise = page.waitForNavigation({ url: /third\.html/ }).then(() => resolved = true);
@@ -233,7 +222,6 @@ it('should work with url match for same document navigations', async ({ page, se
 });
 
 it('should work for cross-process navigations', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: waitForNavigation 行为差异');
   await page.goto(server.EMPTY_PAGE);
   const waitPromise = page.waitForNavigation({ waitUntil: 'domcontentloaded' });
   const url = server.CROSS_PROCESS_PREFIX + '/empty.html';
@@ -246,7 +234,6 @@ it('should work for cross-process navigations', async ({ page, server }) => {
 });
 
 it('should work on frame', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: waitForNavigation 行为差异');
   await page.goto(server.PREFIX + '/frames/one-frame.html');
   const frame = page.frames()[1];
   const [response] = await Promise.all([
@@ -260,7 +247,6 @@ it('should work on frame', async ({ page, server }) => {
 });
 
 it('should fail when frame detaches', async ({ page, server }) => {
-  it.fixme(true, 'ArkWeb: waitForNavigation 行为差异');
   await page.goto(server.PREFIX + '/frames/one-frame.html');
   const frame = page.frames()[1];
   server.setRoute('/empty.html', () => {});
