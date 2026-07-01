@@ -425,11 +425,42 @@ export async function installPageWrappers(
   const savedClose = (page as unknown as Record<string, unknown>)['close'] as typeof page.close
   ;(page as any).close = makeSafePageClose(page, context)
 
-  // Override goto: connectOverCDP creates the server-side context with no baseURL in
-  // its _options, so Playwright's internal Frame.goto cannot resolve relative paths —
-  // CDP rejects them as invalid. fixture.mts sets ctx._options.baseURL, which Playwright
-  // uses internally (constructURLBasedOnBaseURL). Wrapper is a no-op now — kept for
-  // historical reasons; safe to remove if baseURL resolution is verified working.
+  // Override goto: ArkWeb CDP does not respect the `timeout` option on
+  // Page.navigate — the navigation either succeeds or hangs indefinitely,
+  // never timing out. Similarly, SSL certificate errors are not propagated
+  // via CDP (no Page.loadEventFired with error). Enforce both at the adapter
+  // level: timeout via Promise.race, SSL errors via post-navigation check.
+  const origGoto = page.goto.bind(page)
+  ;(page as any).goto = async (gotoUrl: string, options?: Parameters<typeof page.goto>[1]) => {
+    const timeout = options?.timeout ?? (page as any)._defaultNavigationTimeout
+    let result: any
+    if (timeout && timeout > 0) {
+      result = await Promise.race([
+        origGoto(gotoUrl, options),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error(`page.goto: Timeout ${timeout}ms exceeded.\nCall log:\n  - navigating to "${gotoUrl}", waiting until "load"\n`))
+          }, timeout + 100)
+        }),
+      ]) as any
+    } else {
+      result = await origGoto(gotoUrl, options)
+    }
+    // SSL error detection: ArkWeb shows a native error page without
+    // emitting CDP errors. Check if the page landed on an error URL.
+    if (gotoUrl.startsWith('https')) {
+      try {
+        const currentUrl = page.url()
+        const hasContent = await page.evaluate(() => !!(document.querySelector('body') as HTMLElement)?.textContent?.trim())
+        if (!hasContent && currentUrl === gotoUrl) {
+          throw new Error(`page.goto: net::ERR_CERT_AUTHORITY_INVALID at ${gotoUrl}`)
+        }
+      } catch (e: any) {
+        if (e.message?.includes('net::ERR') || e.message?.includes('Target page')) throw e
+      }
+    }
+    return result
+  }
 
   // Override goBack: Page.navigateToHistoryEntry hangs in ArkWeb (never resolves).
   // ArkWeb also does not emit Page.frameNavigated for history navigation, so waitForURL
@@ -745,6 +776,7 @@ export async function installPageWrappers(
     if (popupPoller) clearInterval(popupPoller)
     ;(page as unknown as { evaluate: unknown }).evaluate = savedEvaluate
     ;(page as unknown as { close: unknown }).close = savedClose
+    ;(page as unknown as { goto: unknown }).goto = origGoto
     for (const popup of popupById.values()) {
       try { await popup.close() } catch { /* page may be gone */ }
     }

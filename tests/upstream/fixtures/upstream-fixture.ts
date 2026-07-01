@@ -264,6 +264,25 @@ export const test = merged.extend<BrowserTestTestFixtures, BrowserTestWorkerFixt
   },
 });
 
+// Intercept test.fixme to suppress ArkWeb fixmes the adapter now handles.
+// Does NOT modify spec files — only filters known-obsolete annotations.
+// The adapter infrastructure handles navigator.webdriver, popup.opener(),
+// and popup creation + close events — fixmes for these are no longer needed.
+const _origTestFixme = (test as any).fixme.bind(test)
+const _handledFixmePrefixes = [
+  'ArkWeb: navigator.webdriver',
+  'ArkWeb: window.open via CDP 不建立 opener 关系',
+  'ArkWeb: window.open via CDP 不创建真实 popup',
+]
+;(test as any).fixme = function(condition: any, description?: string) {
+  if (condition && typeof description === 'string') {
+    for (const prefix of _handledFixmePrefixes) {
+      if (description.startsWith(prefix)) return
+    }
+  }
+  return _origTestFixme(condition, description)
+}
+
 // Aliases expected by library specs.
 export const playwrightTest = test;
 export const browserTest = test;
