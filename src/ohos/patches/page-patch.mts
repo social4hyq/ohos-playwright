@@ -427,6 +427,19 @@ export async function installPageWrappers(
     await page.addInitScript(BEFOREUNLOAD_TRACKING_SCRIPT)
   }
 
+  // Override goto: Playwright 1.60's Frame.goto does not resolve relative
+  // URLs against ctx._options.baseURL when the context was created via
+  // connectOverCDP (the _options property is set but internal URL resolution
+  // bypasses it for CDP-originated pages). Resolve at the adapter level.
+  const origGoto = page.goto.bind(page)
+  ;(page as any).goto = async function (gotoUrl: string, ...rest: any[]) {
+    if (gotoUrl && !/^[a-z][a-z0-9+.-]*:/.test(gotoUrl) && !gotoUrl.startsWith('//')) {
+      const base = ((context as unknown) as Record<string, unknown>)?._options as Record<string, string> | undefined
+      if (base?.baseURL) gotoUrl = new URL(gotoUrl, base.baseURL).toString()
+    }
+    return origGoto(gotoUrl, ...rest)
+  }
+
   // Override page.close(): Target.closeTarget crashes ArkWeb CDP WebSocket.
   // Navigate to about:blank + emit 'close' event instead, so tests that call
   // page.close() don't kill the CDP session for all subsequent tests.
@@ -756,6 +769,7 @@ export async function installPageWrappers(
     if (popupPoller) clearInterval(popupPoller)
     ;(page as unknown as { evaluate: unknown }).evaluate = savedEvaluate
     ;(page as unknown as { close: unknown }).close = savedClose
+    ;(page as unknown as { goto: unknown }).goto = origGoto
     for (const popup of popupById.values()) {
       try { await popup.close() } catch { /* page may be gone */ }
     }
