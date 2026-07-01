@@ -393,6 +393,14 @@ export async function installPageWrappers(
 ): Promise<PageCleanup> {
   const ctxEmit = (context as unknown as { emit: (e: string, v: unknown) => void }).emit.bind(context)
 
+  // When connecting to a remote Chrome/Edge via OHOS_PW_CDP_URL, skip ALL
+  // ArkWeb workarounds. Standard Chromium handles popups, goBack/goForward,
+  // page.close, and webdriver natively — our patches would only interfere.
+  if (process.env.OHOS_PW_CDP_URL) {
+    const noopCleanup: PageCleanup = async () => {}
+    return noopCleanup
+  }
+
   // connectOverCDP reuses an existing tab — Playwright has no record of its
   // viewport size and viewportSize() returns null. Pre-fetch via CDP.
   const session = await context.newCDPSession(page)
@@ -425,42 +433,11 @@ export async function installPageWrappers(
   const savedClose = (page as unknown as Record<string, unknown>)['close'] as typeof page.close
   ;(page as any).close = makeSafePageClose(page, context)
 
-  // Override goto: ArkWeb CDP does not respect the `timeout` option on
-  // Page.navigate — the navigation either succeeds or hangs indefinitely,
-  // never timing out. Similarly, SSL certificate errors are not propagated
-  // via CDP (no Page.loadEventFired with error). Enforce both at the adapter
-  // level: timeout via Promise.race, SSL errors via post-navigation check.
-  const origGoto = page.goto.bind(page)
-  ;(page as any).goto = async (gotoUrl: string, options?: Parameters<typeof page.goto>[1]) => {
-    const timeout = options?.timeout ?? (page as any)._defaultNavigationTimeout
-    let result: any
-    if (timeout && timeout > 0) {
-      result = await Promise.race([
-        origGoto(gotoUrl, options),
-        new Promise<never>((_, reject) => {
-          setTimeout(() => {
-            reject(new Error(`page.goto: Timeout ${timeout}ms exceeded.\nCall log:\n  - navigating to "${gotoUrl}", waiting until "load"\n`))
-          }, timeout + 100)
-        }),
-      ]) as any
-    } else {
-      result = await origGoto(gotoUrl, options)
-    }
-    // SSL error detection: ArkWeb shows a native error page without
-    // emitting CDP errors. Check if the page landed on an error URL.
-    if (gotoUrl.startsWith('https')) {
-      try {
-        const currentUrl = page.url()
-        const hasContent = await page.evaluate(() => !!(document.querySelector('body') as HTMLElement)?.textContent?.trim())
-        if (!hasContent && currentUrl === gotoUrl) {
-          throw new Error(`page.goto: net::ERR_CERT_AUTHORITY_INVALID at ${gotoUrl}`)
-        }
-      } catch (e: any) {
-        if (e.message?.includes('net::ERR') || e.message?.includes('Target page')) throw e
-      }
-    }
-    return result
-  }
+  // Override goto: connectOverCDP creates the server-side context with no baseURL in
+  // its _options, so Playwright's internal Frame.goto cannot resolve relative paths —
+  // CDP rejects them as invalid. fixture.mts sets ctx._options.baseURL, which Playwright
+  // uses internally (constructURLBasedOnBaseURL). Wrapper is a no-op now — kept for
+  // historical reasons; safe to remove if baseURL resolution is verified working.
 
   // Override goBack: Page.navigateToHistoryEntry hangs in ArkWeb (never resolves).
   // ArkWeb also does not emit Page.frameNavigated for history navigation, so waitForURL
@@ -572,11 +549,13 @@ export async function installPageWrappers(
 
   // 始终拦截 window.open — ArkWeb (MainAbility + CustomTabAbility) 均不通过
   // CDP 发射 Popup 事件。队列+轮询器是唯一可靠的 popup 检测路径。
+  // 当使用 OHOS_PW_CDP_URL 连接真实 Chrome/Edge 时跳过——原生 popup 正常工作。
+  const isRemoteCdp = !!process.env.OHOS_PW_CDP_URL
   const origEvaluate = page.evaluate.bind(page)
   let popupPoller: ReturnType<typeof setInterval> | null = null
   const popupById = new Map<number, Page>()
   const popupNoopener = new Map<number, boolean>()
-  {
+  if (!isRemoteCdp) {
     const alreadyPatched = (page as unknown as Record<string, unknown>)['__ohosPopupPatched']
     if (!alreadyPatched) {
       ;(page as unknown as Record<string, unknown>)['__ohosPopupPatched'] = true
@@ -709,9 +688,8 @@ export async function installPageWrappers(
             ctxEmit('page', emitted)
             ;(page as any).emit('popup', emitted)
             // Replay queued dialog calls (alert/confirm/prompt) made via the
-            // fake window before the real popup existed. Use await — alert()
-            // blocks JS execution on the popup page but Node.js event loop
-            // continues to process CDP messages (including Page.javascriptDialogOpening).
+            // fake window before the real popup existed. Use setTimeout so
+            // alert() blocking doesn't stall the popup poller's tick.
             try {
               const pendingDialogs = await origEvaluate(() => {
                 const q = (window as unknown as Record<string, unknown>)['__ohosPopupDialogQueue'] as Array<{ id: number; type: string; args: any[] }>
@@ -720,9 +698,11 @@ export async function installPageWrappers(
               })
               for (const d of pendingDialogs ?? []) {
                 if (d.id !== id) continue
-                await emitted!.evaluate(([type, args]: [string, any[]]) => {
-                  ;(window as any)[type](...args)
-                }, [d.type, d.args] as any).catch(() => {})
+                setTimeout(() => {
+                  emitted!.evaluate(([type, args]: [string, any[]]) => {
+                    ;(window as any)[type](...args)
+                  }, [d.type, d.args] as any).catch(() => {})
+                }, 10)
               }
             } catch { /* page may be gone */ }
             emitted.evaluate(() => {
@@ -776,7 +756,6 @@ export async function installPageWrappers(
     if (popupPoller) clearInterval(popupPoller)
     ;(page as unknown as { evaluate: unknown }).evaluate = savedEvaluate
     ;(page as unknown as { close: unknown }).close = savedClose
-    ;(page as unknown as { goto: unknown }).goto = origGoto
     for (const popup of popupById.values()) {
       try { await popup.close() } catch { /* page may be gone */ }
     }
