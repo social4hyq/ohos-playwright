@@ -26,13 +26,12 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   reporter: [['list']],
   workers: isOhos ? (process.env.OHOS_PW_WORKERS ? parseInt(process.env.OHOS_PW_WORKERS) : 1) : undefined,
-  ...(isOhos && !process.env.OHOS_PW_CDP_URL ? {
+  ...(isOhos ? {
     globalSetup: join(pkgDist, 'setup.mjs'),
     globalTeardown: join(pkgDist, 'teardown.mjs'),
   } : {}),
   use: {
     browserName: 'chromium',
-    ...(process.env.OHOS_PW_LOOPBACK ? { loopback: process.env.OHOS_PW_LOOPBACK } : {}),
   },
   projects: [
     { name: 'chromium', use: { browserName: 'chromium' } },
